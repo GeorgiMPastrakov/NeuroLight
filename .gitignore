@@ -73,6 +73,10 @@ ipython_config.py
 
 __pypackages__/
 
+logs/
+results/
+train/models/
+
 celerybeat-schedule
 celerybeat.pid
 

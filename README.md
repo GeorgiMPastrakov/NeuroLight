@@ -1,82 +1,150 @@
-# Adaptive Traffic Light RL
+# NeuroLight
 
-Demo in 60 seconds
+Adaptive traffic-light control with reinforcement learning and a real-time visualizer.
 
-- make serve
-- Open http://localhost:8000
-- Mode: Fixed for ~30s (watch queues)
-- Click "Load Policy" → Mode: RL (queues shrink)
-- Click "Rush hour" to spike arrivals; RL adapts
-- (If pedestrians) press Cross; observe PED phase
+## Why It’s Useful
+- **End-to-end demo:** train an RL policy, evaluate it against a handcrafted baseline, and serve live decisions through a Flask API plus WebGL canvas UI.
+- **Pedestrian-aware simulation:** optional pedestrian phase with clearance logic and queue-aware fixed controller for comparison.
+- **Domain randomization:** configurable arrival-rate perturbations for robustness testing.
+- **Ready-to-run scripts:** one-liners for setup, training, serving, evaluation, and tests.
 
-Setup
+---
 
-- make install
-- make train
-- make serve
-- open web/index.html
+## Prerequisites
+- Linux or macOS (Windows WSL works)
+- Python 3.10 or newer
+- Recommended: virtual environment (automatically handled by `scripts/setup.sh`)
+- Optional: CUDA 12.1 or ROCm 6.0 drivers for GPU acceleration
 
-Structure
+---
 
-- envs/traffic_env.py
-- envs/traffic_env_ped.py
-- train/train_ppo.py
-- train/eval_fixed.py
-- train/eval_trained.py
-- train/config.yaml
-- api/server.py
-- web/index.html
-- tests/
-- requirements.txt
-- Makefile
+## Quick Start
+```bash
+git clone <repo-url>
+cd NeuroLight
+scripts/setup.sh             # creates .venv and installs dependencies
+scripts/train.sh             # trains a PPO agent (pedestrian-aware by default)
+scripts/serve.sh             # starts the Flask API with the trained model
+# In another terminal
+xdg-open http://localhost:8000  # or open manually in your browser
+```
 
-Usage
+> The UI starts in **Fixed** mode. Click **Load Policy** then switch to **RL** to watch queues adapt. Toggle **Rush hour** or trigger pedestrian calls to stress the controller.
 
-- Train PPO and save to train/models/ppo_single_junction.zip
-- Start the API
-- Open the UI and switch between Fixed and RL
-- Adjust arrival rates and trigger pedestrian calls
+---
 
-Reproducibility
+## Script Reference
 
-- PYTHONHASHSEED=0 SB3_DEVICE=cuda .venv/bin/python -m train.train_ppo --env ped --device cuda --num_envs 16 --subproc --total_timesteps 5000000 --save_best --eval_freq 50000 --eval_episodes 10
+| Script | Purpose | Key Environment Vars |
+| --- | --- | --- |
+| `scripts/setup.sh` | Create/update `.venv` and install deps | `TORCH_CHANNEL` via `--torch`, `PYTHON_BIN`, `VENV` |
+| `scripts/train.sh` | Train PPO with sensible defaults | `ENV_TYPE`, `DEVICE`, `NUM_ENVS`, `TOTAL_TIMESTEPS`, `TB_LOG_DIR`, `SUBPROC`, `SAVE_BEST` |
+| `scripts/serve.sh` | Launch API + UI backend | `HOST`, `PORT`, `USE_PED`, `SB3_DEVICE`, `DEBUG` |
+| `scripts/eval.sh` | Run fixed and RL evaluations, persist `results/last_run.json` | — |
+| `scripts/run_tests.sh` | Execute unit tests (pytest if available, otherwise unittest) | — |
 
-GPU Training
+Scripts automatically activate the project virtualenv (`.venv`). Override defaults with environment variables:
 
-- Install a CUDA build of PyTorch that matches your system. Example (CUDA 12.1):
-  - pip install --upgrade pip
-  - pip install torch --index-url https://download.pytorch.org/whl/cu121
-- Verify GPU is visible: python -c "import torch; print(torch.cuda.is_available())" -> True
-- AMD (ROCm): install a ROCm build of PyTorch that matches your ROCm version, e.g.:
-  - pip install torch --index-url https://download.pytorch.org/whl/rocm6.0
-  - Verify: python -c "import torch; print(torch.cuda.is_available()); import torch; print(torch.version.hip)"
-- Defaults are tuned for Ubuntu + 14700KF + 7800 XT:
-  - make train  # uses DEV=cuda, NUM_ENVS=16, SUBPROC=1, TB=logs/tb, TOTAL=5e6
-  - For different setups, override variables: DEV, NUM_ENVS, TOTAL, TB.
+```bash
+ENV_TYPE=base TOTAL_TIMESTEPS=100000 DEVICE=cpu scripts/train.sh --progress_bar
+HOST=127.0.0.1 PORT=8080 DEBUG=1 USE_PED=1 scripts/serve.sh
+```
 
-Domain randomization (for robustness)
+---
 
-- Enabled by default in train/config.yaml under `rand:`. It randomly scales vehicle and pedestrian arrival rates per episode.
-- Disable by removing or commenting the `rand:` block in config.
+## Training
 
-Evaluation and checkpoints
+- Configuration lives in `train/config.yaml`:
+  - `env` and `env_ped` control traffic demand, signal timing, and pedestrian behaviour.
+  - `policy_kwargs` sets a two-layer MLP (256 units).
+  - `rand` enables domain randomization (per-episode scaling of vehicle/pedestrian arrival rates). Remove the block to disable.
+- `scripts/train.sh` defaults to a 500 k step run with 8 vector environments, periodic evaluation, and automatic best-model checkpointing to `train/models/ppo_single_junction.zip`.
+- For smoke tests or CI:
 
-- make train now runs with periodic evaluation and saves the best model by default.
-- The best model is copied to train/models/ppo_single_junction.zip after training,
-  which the UI and eval scripts use automatically.
-- Customize via variables: EVAL_FREQ, EVAL_EPISODES, SAVE_BEST=0 to disable.
-- Example (explicit script):
-  - python -m train.train_ppo --env ped --device cuda --num_envs 16 --subproc \
-    --total_timesteps 5000000 --tb_log_dir logs/tb --progress_bar \
-    --eval_freq 50000 --eval_episodes 10 --save_best
-- The script also accepts: --device, --num_envs, --total_timesteps, --tb_log_dir, --progress_bar
+  ```bash
+  TOTAL_TIMESTEPS=50000 NUM_ENVS=4 SAVE_BEST=0 scripts/train.sh
+  ```
 
-GPU Inference (Server)
+- GPU training: install CUDA/ROCm builds via `scripts/setup.sh --torch cu121` (for CUDA 12.1) or `--torch rocm6.0`, then set `DEVICE=cuda`.
 
-- To run RL inference on GPU when loading a policy in the UI:
-  - SB3_DEVICE=cuda USE_PED=1 make serve  # or omit USE_PED if not needed
-  - Click "Load Policy" in the UI.
+---
 
-Notes
+## Serving & Frontend
 
-- USE_PED=1 enables pedestrians on the server
+```bash
+USE_PED=1 SB3_DEVICE=cuda scripts/serve.sh
+```
+
+- `USE_PED=1` loads the pedestrian-aware environment; omit or set to `0` for vehicle-only.
+- `SB3_DEVICE` controls inference device (`auto`, `cpu`, or `cuda`).
+- Server auto-resets episodes once they reach `episode_len`, clears per-episode metrics, and reports summaries under `metrics.last_episode`.
+- Endpoints:
+  - `POST /load_policy` – load model (defaults to `train/models/ppo_single_junction.zip`)
+  - `POST /mode` – switch between `fixed` and `rl`
+  - `POST /step` – advance simulation; returns current observation, reward, action taken, and `episode_reset`/`episode_summary` when an episode rolls over
+  - `POST /set_params` – adjust arrival rates on the fly
+  - `POST /ped_call` – queue a pedestrian request (`side` = `ns` or `ew`)
+  - `GET /metrics` – live dashboard metrics per episode
+
+The web UI (in `web/`) polls `/step` at the selected frame rate, renders queues with canvas, and displays live metrics and a wait-time sparkline. Episodes now cycle seamlessly without manual resets.
+
+---
+
+## Evaluation & Testing
+
+```bash
+scripts/eval.sh        # deterministic fixed-time and trained policy evals
+scripts/run_tests.sh   # unit tests (pytest if installed, else unittest)
+```
+
+Evaluation writes summaries to stdout and `results/last_run.json`. The RL evaluation infers whether the loaded model expects the base or pedestrian observation space and runs on both when possible.
+
+---
+
+## Configuration Cheatsheet
+
+| Setting | Location | Description |
+| --- | --- | --- |
+| `episode_len` | `train/config.yaml` → `env.episode_len` | Steps per episode before auto-reset |
+| `min_green`, `yellow` | same | Signal timing constraints |
+| `lambda_ns`, `lambda_ew` | same | Mean vehicle arrivals (Poisson) |
+| `lambda_p_ns`, `lambda_p_ew` | `env_ped` | Mean pedestrian arrivals |
+| `ped_throughput`, `min_walk`, `clearance` | `env_ped` | Pedestrian phase settings |
+| `rand.*` | `train/config.yaml` | Domain randomization ranges |
+| `step_fixed()` | `api/server.py` | Queue-aware baseline controller |
+
+---
+
+## Project Layout
+
+```
+api/            Flask API and fixed baseline controller
+envs/           Gymnasium environments (vehicles + pedestrians)
+train/          Training, evaluation scripts, wrappers, configs
+web/            Static frontend (canvas renderer + controls)
+tests/          Unit tests for environment dynamics and rewards
+scripts/        Entry-point helpers for setup, training, serving, etc.
+train/models/   Saved PPO checkpoints (gitignored)
+logs/, results/ Output directories for TensorBoard and eval summaries
+```
+
+---
+
+## Troubleshooting
+
+- **“Virtualenv not found”** – run `scripts/setup.sh` first (consider `--recreate` if the env is stale).
+- **GPU not detected** – confirm `python -c "import torch; print(torch.cuda.is_available())"` inside `.venv`. Reinstall with `scripts/setup.sh --torch cu121`.
+- **UI stops updating** – episodes now auto-reset, but if the UI appears stuck, reload the page. For debugging, check the browser console for network errors.
+- **Metrics look cumulative** – `/reset` and episode rollovers clear counters; if values keep climbing, ensure you’re on the updated server (`scripts/serve.sh`).
+- **Custom configs** – point training to another config file with `CONFIG=path/to/other.yaml scripts/train.sh` and the server will pick up changes automatically on restart.
+
+---
+
+## Development Tips
+
+- Activate the virtualenv manually with `source .venv/bin/activate` for ad-hoc work.
+- Export `PYTHONPATH=.` if you run modules directly without the helper scripts.
+- Use `ENV_TYPE=base` to focus on vehicle-only training and reduce action space to 2.
+- Scripts replace the older make targets; prefer `scripts/*.sh` helpers for reproducible commands.
+
+Happy tinkering! PRs that add new scenarios, controllers, or evaluation suites are welcome.
