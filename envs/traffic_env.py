@@ -43,6 +43,7 @@ class TrafficEnv(gym.Env):
         self.switches = 0
         self.total_reward = 0.0
         self.total_served_v = 0
+        self.pending_switch = False
         obs = self._obs()
         info = {"t": self.t, "q_ns": self.q_ns, "q_ew": self.q_ew, "phase": self.phase, "served_v": 0, "switches": self.switches}
         return obs, info
@@ -59,13 +60,24 @@ class TrafficEnv(gym.Env):
             self.yellow_left -= 1
             self.t_in_phase = 0
         else:
-            if action == 1 and self.t_in_phase >= self.min_green:
+            can_switch = self.t_in_phase >= self.min_green
+            if self.pending_switch and can_switch:
                 self.phase = 1 - self.phase
                 self.yellow_left = self.yellow_dur
                 self.t_in_phase = 0
+                self.pending_switch = False
+                switched = 1
+                self.switches += 1
+            elif action == 1 and can_switch:
+                self.phase = 1 - self.phase
+                self.yellow_left = self.yellow_dur
+                self.t_in_phase = 0
+                self.pending_switch = False
                 switched = 1
                 self.switches += 1
             else:
+                if action == 1 and not can_switch:
+                    self.pending_switch = True
                 if self.phase == 0:
                     s = min(self.veh_throughput, self.q_ns)
                     self.q_ns -= s

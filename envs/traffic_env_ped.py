@@ -55,6 +55,8 @@ class TrafficEnvPed(gym.Env):
         self.total_reward = 0.0
         self.total_served_v = 0
         self.total_served_p = 0
+        self.pending_vehicle_switch = False
+        self.pending_ped_phase = False
         obs = self._obs()
         info = {"t": self.t, "q_ns": self.q_ns, "q_ew": self.q_ew, "p_ns": self.p_ns, "p_ew": self.p_ew, "phase": self.phase, "served_v": 0, "served_p": 0, "switches": self.switches}
         return obs, info
@@ -87,20 +89,45 @@ class TrafficEnvPed(gym.Env):
             if self.ped_walk_left == 0:
                 self.ped_clear_left = self.clearance
         else:
-            if action == 2 and (self.p_ns > 0 or self.p_ew > 0) and self.t_in_phase >= self.min_green and self.phase in [0,1]:
+            can_switch = self.t_in_phase >= self.min_green
+            ped_waiting = (self.p_ns > 0 or self.p_ew > 0)
+            if self.phase in [0,1] and self.pending_ped_phase and can_switch and ped_waiting:
                 self.prev_veh_phase = self.phase
                 self.phase = 2
                 self.ped_walk_left = self.min_walk
                 self.t_in_phase = 0
+                self.pending_ped_phase = False
+                self.pending_vehicle_switch = False
                 switched = 1
                 self.switches += 1
-            elif action == 1 and self.phase in [0,1] and self.t_in_phase >= self.min_green:
+            elif self.phase in [0,1] and self.pending_vehicle_switch and can_switch:
                 self.phase = 1 - self.phase
                 self.yellow_left = self.yellow_dur
                 self.t_in_phase = 0
+                self.pending_vehicle_switch = False
+                switched = 1
+                self.switches += 1
+            elif action == 2 and ped_waiting and can_switch and self.phase in [0,1]:
+                self.prev_veh_phase = self.phase
+                self.phase = 2
+                self.ped_walk_left = self.min_walk
+                self.t_in_phase = 0
+                self.pending_ped_phase = False
+                self.pending_vehicle_switch = False
+                switched = 1
+                self.switches += 1
+            elif action == 1 and self.phase in [0,1] and can_switch:
+                self.phase = 1 - self.phase
+                self.yellow_left = self.yellow_dur
+                self.t_in_phase = 0
+                self.pending_vehicle_switch = False
                 switched = 1
                 self.switches += 1
             else:
+                if action == 2 and self.phase in [0,1] and ped_waiting and not can_switch:
+                    self.pending_ped_phase = True
+                elif action == 1 and self.phase in [0,1] and not can_switch:
+                    self.pending_vehicle_switch = True
                 if self.phase == 0:
                     s = min(self.veh_throughput, self.q_ns)
                     self.q_ns -= s
