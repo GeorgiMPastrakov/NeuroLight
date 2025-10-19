@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Adaptive Traffic RL</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div id="app">
+  <div id="panel">
+    <div id="title">Adaptive Traffic RL</div>
+    <div class="row">
+      <button id="load">Load Policy</button>
+      <button id="reset">Reset</button>
+      <select id="mode">
+        <option value="fixed">Fixed</option>
+        <option value="rl">RL</option>
+      </select>
+      <select id="rate">
+        <option value="1000">1 fps</option>
+        <option value="500">2 fps</option>
+        <option value="200">5 fps</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Traffic NS <input id="ns" type="range" min="0" max="2" step="0.05" value="0.7"></label>
+      <label>Traffic EW <input id="ew" type="range" min="0" max="2" step="0.05" value="0.7"></label>
+    </div>
+    <div class="row" id="ped-controls">
+      <label>Ped NS <input id="pns" type="range" min="0" max="1" step="0.05" value="0.2"></label>
+      <label>Ped EW <input id="pew" type="range" min="0" max="1" step="0.05" value="0.2"></label>
+      <button id="pedns">Press NS</button>
+      <button id="pedew">Press EW</button>
+    </div>
+    <div id="hud">
+      <div><span class="k">t</span><span id="t">0</span></div>
+      <div><span class="k">avg_wait</span><span id="avg">0</span></div>
+      <div><span class="k">served_v</span><span id="sv">0</span></div>
+      <div><span class="k">served_p</span><span id="sp">0</span></div>
+      <div><span class="k">switches</span><span id="sw">0</span></div>
+      <div><span class="k">reward_avg</span><span id="ra">0</span></div>
+    </div>
+  </div>
+  <canvas id="c"></canvas>
+</div>
+<script src="assets/app.js"></script>
+</body>
+</html>
