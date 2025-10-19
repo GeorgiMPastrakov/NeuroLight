@@ -51,6 +51,10 @@ def main():
         print({"error": "Could not infer env type from model", "obs_shape": obs_shape, "action_n": act_n})
         return
     print(results)
+    os.makedirs('results', exist_ok=True)
+    import json
+    with open('results/last_run.json','w') as f:
+        json.dump(results, f, indent=2)
 
 if __name__ == "__main__":
     main()

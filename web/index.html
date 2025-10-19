@@ -7,9 +7,13 @@
 <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
-<div id="app">
+  <div id="app">
   <div id="panel">
     <div id="title">Adaptive Traffic RL</div>
+    <div class="row">
+      <span id="phase-badge" class="badge">NS</span>
+      <button id="rush">Rush hour: Off</button>
+    </div>
     <div class="row">
       <button id="load">Load Policy</button>
       <button id="reset">Reset</button>
@@ -40,6 +44,7 @@
       <div><span class="k">served_p</span><span id="sp">0</span></div>
       <div><span class="k">switches</span><span id="sw">0</span></div>
       <div><span class="k">reward_avg</span><span id="ra">0</span></div>
+      <div style="grid-column:1/3"><canvas id="spark" width="280" height="40"></canvas></div>
     </div>
   </div>
   <canvas id="c"></canvas>

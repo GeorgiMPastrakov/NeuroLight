@@ -1,5 +1,14 @@
 # Adaptive Traffic Light RL
 
+Demo in 60 seconds
+
+- make serve
+- Open http://localhost:8000
+- Mode: Fixed for ~30s (watch queues)
+- Click "Load Policy" → Mode: RL (queues shrink)
+- Click "Rush hour" to spike arrivals; RL adapts
+- (If pedestrians) press Cross; observe PED phase
+
 Setup
 
 - make install
@@ -27,6 +36,10 @@ Usage
 - Start the API
 - Open the UI and switch between Fixed and RL
 - Adjust arrival rates and trigger pedestrian calls
+
+Reproducibility
+
+- PYTHONHASHSEED=0 SB3_DEVICE=cuda .venv/bin/python -m train.train_ppo --env ped --device cuda --num_envs 16 --subproc --total_timesteps 5000000 --save_best --eval_freq 50000 --eval_episodes 10
 
 GPU Training
 
