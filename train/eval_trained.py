@@ -14,16 +14,19 @@ def run_episode(env, model):
     served_v = 0
     served_p = 0
     switches = 0
+    action_counts = {}
     while not (done or trunc):
         action, _ = model.predict(obs, deterministic=True)
-        obs, reward, done, trunc, info = env.step(int(action))
+        a = int(action)
+        action_counts[a] = action_counts.get(a, 0) + 1
+        obs, reward, done, trunc, info = env.step(a)
         total_reward += reward
         total_q += info.get("q_ns", 0) + info.get("q_ew", 0)
         served_v += info.get("served_v", 0)
         served_p += info.get("served_p", 0)
         switches = info.get("switches", switches)
     avg_q = total_q / max(1, info.get("t", 1))
-    return {"reward": total_reward, "avg_q": avg_q, "served_v": served_v, "served_p": served_p, "switches": switches}
+    return {"reward": total_reward, "avg_q": avg_q, "served_v": served_v, "served_p": served_p, "switches": switches, "actions": action_counts}
 
 def main():
     with open("train/config.yaml", "r") as f:
