@@ -90,6 +90,7 @@ def step():
     global env, obs, model, mode, metrics
     data = request.get_json(force=True) if request.data else {}
     m = data.get("mode", mode)
+    mode_used = "fixed"
     if m == "rl":
         if model is None:
             return jsonify({"error": "no model"}), 400
@@ -97,6 +98,7 @@ def step():
         from stable_baselines3 import PPO  # noqa: F401
         action, _ = model.predict(obs, deterministic=True)
         action = int(action)
+        mode_used = "rl"
     else:
         action = step_fixed()
     obs, reward, terminated, truncated, info = env.step(action)
@@ -118,7 +120,15 @@ def step():
     metrics["served_p"] += info.get("served_p", 0)
     metrics["switches"] = info.get("switches", metrics["switches"]) 
     metrics["reward_avg"] = (metrics["reward_avg"] * (t - 1) + reward) / t
-    return jsonify({"obs": obs.tolist(), "reward": float(reward), "terminated": bool(terminated), "truncated": bool(truncated), "info": info})
+    return jsonify({
+        "obs": obs.tolist(),
+        "reward": float(reward),
+        "terminated": bool(terminated),
+        "truncated": bool(truncated),
+        "info": info,
+        "mode_used": mode_used,
+        "action": int(action),
+    })
 
 @app.get("/metrics")
 def get_metrics():
