@@ -1,0 +1,35 @@
+algo: PPO
+policy: MlpPolicy
+learning_rate: 0.00025
+learning_rate_schedule: linear
+gamma: 0.99
+gae_lambda: 0.95
+n_steps: 2048
+batch_size: 1024
+n_epochs: 10
+ent_coef: 0.005
+clip_range: 0.2
+target_kl: 0.02
+policy_kwargs:
+  net_arch: [256, 256]
+total_timesteps: 5000000
+seed: 42
+env:
+  max_queue: 20
+  lambda_ns: 0.7
+  lambda_ew: 0.7
+  veh_throughput: 2
+  min_green: 8
+  yellow: 3
+  episode_len: 1500
+env_ped:
+  lambda_p_ns: 0.2
+  lambda_p_ew: 0.2
+  ped_throughput: 3
+  min_walk: 7
+  clearance: 3
+rand:
+  lambda_scale_min: 0.7
+  lambda_scale_max: 1.3
+  ped_scale_min: 0.7
+  ped_scale_max: 1.3
