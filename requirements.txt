@@ -1,0 +1,10 @@
+gymnasium==0.29.1
+stable-baselines3==2.3.2
+torch>=2.2
+numpy
+flask
+flask-cors
+pyyaml
+tensorboard
+tqdm
+rich
