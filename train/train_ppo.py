@@ -2,11 +2,10 @@ import os
 import shutil
 import argparse
 import yaml
-import numpy as np
 from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback, CallbackList
+from stable_baselines3.common.callbacks import EvalCallback, CallbackList
 from train.wrappers import RandomizeParams
 from stable_baselines3.common.utils import set_random_seed
 from envs.traffic_env import TrafficEnv

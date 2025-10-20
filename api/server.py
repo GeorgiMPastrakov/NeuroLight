@@ -1,5 +1,5 @@
+import argparse
 import os
-import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import yaml
@@ -19,7 +19,39 @@ env = TrafficEnvPed(seed=seed, **cfg["env"], **cfg["env_ped"]) if use_ped else T
 obs, info = env.reset()
 model = None
 mode = "fixed"
-metrics = {"t": 0, "avg_wait_proxy": 0.0, "served_v": 0, "served_p": 0, "switches": 0, "reward_avg": 0.0}
+
+
+def init_metrics(episode=1):
+    return {
+        "episode": episode,
+        "t": 0,
+        "avg_wait_proxy": 0.0,
+        "served_v": 0,
+        "served_p": 0,
+        "switches": 0,
+        "reward_avg": 0.0,
+        "_wait_sum": 0.0,
+        "_reward_sum": 0.0,
+        "last_episode": None,
+    }
+
+
+metrics = init_metrics()
+
+
+def metrics_payload():
+    payload = {
+        "episode": metrics["episode"],
+        "t": metrics["t"],
+        "avg_wait_proxy": metrics["avg_wait_proxy"],
+        "served_v": metrics["served_v"],
+        "served_p": metrics["served_p"],
+        "switches": metrics["switches"],
+        "reward_avg": metrics["reward_avg"],
+    }
+    if metrics.get("last_episode"):
+        payload["last_episode"] = metrics["last_episode"]
+    return payload
 
 def step_fixed():
     """Queue-aware fixed controller with ped priority and max green cap.
@@ -81,7 +113,8 @@ def set_mode():
 
 @app.post("/reset")
 def reset():
-    global env, obs
+    global env, obs, metrics
+    metrics = init_metrics()
     obs, info = env.reset()
     return jsonify({"obs": obs.tolist(), "info": info})
 
@@ -101,7 +134,9 @@ def step():
         mode_used = "rl"
     else:
         action = step_fixed()
-    obs, reward, terminated, truncated, info = env.step(action)
+    obs_step, reward, terminated, truncated, info_step = env.step(action)
+    obs = obs_step
+    info = info_step
     if hasattr(env, "yellow_left"):
         info["yellow"] = int(env.yellow_left)
     if hasattr(env, "t_in_phase"):
@@ -112,15 +147,40 @@ def step():
         info["ped_walk_left"] = int(env.ped_walk_left)
     if hasattr(env, "ped_clear_left"):
         info["ped_clear_left"] = int(env.ped_clear_left)
-    t = info.get("t", metrics["t"]) or 1
-    metrics["t"] = t
+    step_index = info.get("t")
+    if step_index is None:
+        step_index = metrics["t"] + 1
+    metrics["t"] = int(step_index)
     avg_wait = (info.get("q_ns", 0) + info.get("q_ew", 0))
-    metrics["avg_wait_proxy"] = (metrics["avg_wait_proxy"] * (t - 1) + avg_wait) / t
-    metrics["served_v"] += info.get("served_v", 0)
-    metrics["served_p"] += info.get("served_p", 0)
-    metrics["switches"] = info.get("switches", metrics["switches"]) 
-    metrics["reward_avg"] = (metrics["reward_avg"] * (t - 1) + reward) / t
-    return jsonify({
+    metrics["_wait_sum"] += avg_wait
+    if metrics["t"] > 0:
+        metrics["avg_wait_proxy"] = metrics["_wait_sum"] / metrics["t"]
+    served_v = info.get("served_v", 0)
+    served_p = info.get("served_p", 0)
+    metrics["served_v"] += served_v
+    metrics["served_p"] += served_p
+    metrics["switches"] = info.get("switches", metrics["switches"])
+    metrics["_reward_sum"] += reward
+    metrics["reward_avg"] = metrics["_reward_sum"] / max(1, metrics["t"])
+
+    episode_reset = bool(terminated or truncated)
+    summary = None
+    if episode_reset:
+        summary = {
+            "episode": metrics["episode"],
+            "steps": metrics["t"],
+            "avg_wait_proxy": metrics["avg_wait_proxy"],
+            "served_v": metrics["served_v"],
+            "served_p": metrics["served_p"],
+            "switches": metrics["switches"],
+            "reward_avg": metrics["reward_avg"],
+            "reward_total": metrics["_reward_sum"],
+        }
+        next_metrics = init_metrics(episode=summary["episode"] + 1)
+        next_metrics["last_episode"] = summary
+        metrics = next_metrics
+        obs, info = env.reset()
+    response = {
         "obs": obs.tolist(),
         "reward": float(reward),
         "terminated": bool(terminated),
@@ -128,11 +188,15 @@ def step():
         "info": info,
         "mode_used": mode_used,
         "action": int(action),
-    })
+    }
+    if episode_reset:
+        response["episode_reset"] = True
+        response["episode_summary"] = summary
+    return jsonify(response)
 
 @app.get("/metrics")
 def get_metrics():
-    return jsonify(metrics)
+    return jsonify(metrics_payload())
 
 @app.get("/")
 def root():
@@ -164,8 +228,14 @@ def ped_call():
         env.p_ew += 1
     return jsonify({"ok": True})
 
-if __name__ == "main__":
-    app.run(host="0.0.0.0", port=8000, debug=False)
+def main():
+    parser = argparse.ArgumentParser(description="NeuroLight API server")
+    parser.add_argument("--host", default="0.0.0.0", help="Bind address for the Flask server")
+    parser.add_argument("--port", type=int, default=8000, help="Port for the Flask server")
+    parser.add_argument("--debug", action="store_true", help="Enable Flask debug mode")
+    args = parser.parse_args()
+    app.run(host=args.host, port=args.port, debug=args.debug)
+
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=False)
+    main()

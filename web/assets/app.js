@@ -21,7 +21,7 @@ size()
 async function post(path, body){const r=await fetch(`${api}${path}`,{method:'POST',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):'{}'});return r.json()}
 async function get(path){const r=await fetch(`${api}${path}`);return r.json()}
 async function load(){await post('/load_policy',{path:'train/models/ppo_single_junction.zip'})}
-async function reset(){const r=await post('/reset');obs=r.obs;info=r.info;pedEnabled=Array.isArray(obs)&&obs.length===8;document.getElementById('ped-controls').style.display=pedEnabled?'flex':'none'}
+async function reset(){const r=await post('/reset');obs=r.obs;info=r.info;pedEnabled=Array.isArray(obs)&&obs.length===8;document.getElementById('ped-controls').style.display=pedEnabled?'flex':'none';waitSeries=[]}
 async function setMode(m){await post('/mode',{mode:m})}
 async function setParams(){const data={lambda_ns:parseFloat(document.getElementById('ns').value),lambda_ew:parseFloat(document.getElementById('ew').value)};if(pedEnabled){data.lambda_p_ns=parseFloat(document.getElementById('pns').value);data.lambda_p_ew=parseFloat(document.getElementById('pew').value)}await post('/set_params',data)}
 async function ped(side){if(pedEnabled)await post('/ped_call',{side})}
@@ -57,6 +57,7 @@ function draw(){const w=c.width,h=c.height;ctx.clearRect(0,0,w,h);drawRoad(w,h);
 function phaseBadge(){const b=document.getElementById('phase-badge');b.style.background='#2a3347';if(phase===0)b.textContent='NS';else if(phase===1)b.textContent='EW';else if(phase===2)b.textContent='PED';else b.textContent='?'}
 function drawSpark(val){const sc=document.getElementById('spark');if(!sc)return;const sctx=sc.getContext('2d');waitSeries.push(val);if(waitSeries.length>MAX_POINTS)waitSeries.shift();const w=sc.width,h=sc.height; sctx.clearRect(0,0,w,h); sctx.strokeStyle='#6fd0ff'; sctx.beginPath(); for(let i=0;i<waitSeries.length;i++){const x=i*(w/Math.max(1,MAX_POINTS-1)); const vmax=Math.max(...waitSeries,1); const y=h- (waitSeries[i]/vmax)* (h-2) -1; if(i===0)sctx.moveTo(x,y); else sctx.lineTo(x,y);} sctx.stroke();}
 async function stepOnce(){const m=document.getElementById('mode').value;const r=await post('/step',{mode:m});if(r.obs){obs=r.obs;info=r.info;qns=info.q_ns||0;qew=info.q_ew||0;pns=info.p_ns||0;pew=info.p_ew||0;prevPhase=typeof phase==='number'?phase:0;phase=info.phase||0;yellow=info.yellow||0;pedWalk=info.ped_walk_left||0;pedClear=info.ped_clear_left||0}
-const met=await get('/metrics');metrics=met;document.getElementById('t').textContent=met.t;const avg=Number(met.avg_wait_proxy||0);document.getElementById('avg').textContent=avg.toFixed(2);document.getElementById('sv').textContent=met.served_v;document.getElementById('sp').textContent=met.served_p;document.getElementById('sw').textContent=met.switches;document.getElementById('ra').textContent=Number(met.reward_avg||0).toFixed(3);phaseBadge();drawSpark(avg);draw()}
+if(r.episode_reset){waitSeries=[]}
+const met=await get('/metrics');metrics=met;document.getElementById('ep').textContent=met.episode||1;document.getElementById('t').textContent=met.t;const avg=Number(met.avg_wait_proxy||0);document.getElementById('avg').textContent=avg.toFixed(2);document.getElementById('sv').textContent=met.served_v;document.getElementById('sp').textContent=met.served_p;document.getElementById('sw').textContent=met.switches;document.getElementById('ra').textContent=Number(met.reward_avg||0).toFixed(3);phaseBadge();drawSpark(avg);draw()}
 async function loop(){await stepOnce();setTimeout(loop,interval)}
 reset().then(()=>loop())

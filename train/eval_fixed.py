@@ -1,5 +1,4 @@
 import yaml
-import numpy as np
 from envs.traffic_env import TrafficEnv
 from envs.traffic_env_ped import TrafficEnvPed
 

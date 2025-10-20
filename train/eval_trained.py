@@ -1,6 +1,5 @@
 import os
 import yaml
-import numpy as np
 from stable_baselines3 import PPO
 from envs.traffic_env import TrafficEnv
 from envs.traffic_env_ped import TrafficEnvPed

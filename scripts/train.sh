@@ -23,6 +23,7 @@ PROGRESS="${PROGRESS:-1}"
 SUBPROC="${SUBPROC:-1}"
 CONFIG="${CONFIG:-train/config.yaml}"
 MODELS_DIR="${MODELS_DIR:-train/models}"
+export HSA_OVERRIDE_GFX_VERSION="${HSA_OVERRIDE_GFX_VERSION:-11.0.0}"
 
 ARGS=(
   --env "$ENV_TYPE"
