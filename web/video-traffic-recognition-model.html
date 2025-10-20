@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Car Counter — Upload Video (Fixed Overlay)</title>
+  <title>Car Counter — Upload Video (Works)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root { color-scheme: dark; }
@@ -14,6 +14,7 @@
     input[type="file"] { display:none }
     .stage { position:relative; width:100%; aspect-ratio:16/9; background:#0f1115; border:1px solid #242434; border-radius:12px; overflow:hidden }
     video, canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:contain }
+    #log { font-size:12px; opacity:.85 }
   </style>
 </head>
 <body>
@@ -31,18 +32,19 @@
       <video id="vid" controls playsinline muted></video>
       <canvas id="overlay"></canvas>
     </div>
+
+    <div id="log" class="badge">log: —</div>
   </div>
 
   <script type="module">
     import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0";
 
-    // ─── ONLY SETTINGS ───────────────────────────────────────────────────────
-    const CONFIDENCE = 0.75;   // certainty threshold (tweak 0.75–0.80)
-    const NMS_IOU    = 0.50;   // fixed de-dup IoU
-    const SAMPLE_MS  = 1000;   // run detection ~every 1s
+    // ─── ONLY KNOBS ──────────────────────────────────────────────────────────
+    const CONFIDENCE = 0.75;   // certainty threshold (try 0.80 if your clip is noisy)
+    const NMS_IOU    = 0.50;   // fixed, class-aware de-dup
     // ─────────────────────────────────────────────────────────────────────────
 
-    env.allowLocalModels = false;
+    env.allowLocalModels = false; // download model from the Hub, cached by browser
     const VEHICLES = new Set(["car","truck","bus","motorcycle"]);
 
     const statusEl = document.getElementById("status");
@@ -51,18 +53,21 @@
     const video    = document.getElementById("vid");
     const overlay  = document.getElementById("overlay");
     const ctx      = overlay.getContext("2d");
+    const logEl    = document.getElementById("log");
+    const log = (...a) => { console.log("[counter]", ...a); logEl.textContent = "log: " + a.join(" "); };
 
-    // resize overlay to match CSS size (and account for devicePixelRatio)
+    // overlay sizing: match CSS size, draw in CSS pixels using DPR scaling
     function resizeOverlay() {
       const r = overlay.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
       overlay.width  = Math.max(1, Math.round(r.width  * dpr));
       overlay.height = Math.max(1, Math.round(r.height * dpr));
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // draw in CSS pixels
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      log("overlay resized", r.width + "x" + r.height);
     }
     window.addEventListener("resize", resizeOverlay);
 
-    // map normalized boxes (0..1) onto letterboxed video (“object-fit: contain”)
+    // map normalized boxes onto letterboxed video (“object-fit: contain”)
     function getContainRect(mediaW, mediaH, viewW, viewH) {
       const scale = Math.min(viewW / mediaW, viewH / mediaH);
       const w = mediaW * scale, h = mediaH * scale;
@@ -70,7 +75,7 @@
       return { x, y, w, h };
     }
 
-    // simple IoU + class-aware NMS
+    // IoU + simple, class-aware NMS
     function iou(a, b) {
       const ax2 = a.x + a.w, ay2 = a.y + a.h;
       const bx2 = b.x + b.w, by2 = b.y + b.h;
@@ -97,16 +102,21 @@
       return out;
     }
 
-    // load model once
+    // load DETR (COCO) — runs in-tab (WebGPU if available, else WASM)
     let detector = null;
     async function loadModel() {
       statusEl.textContent = "Loading model…";
+      log("loading DETR (COCO) via Transformers.js …");
       detector = await pipeline("object-detection", "Xenova/detr-resnet-50", { device: "webgpu" });
       statusEl.textContent = "Ready ✅";
+      log("model ready");
     }
     await loadModel();
 
-    // draw boxes aligned to the displayed (letterboxed) video
+    // detection work happens from an offscreen canvas (ensures stable input)
+    const work = document.createElement("canvas");
+    const wctx = work.getContext("2d");
+
     function drawBoxes(dets) {
       const r = overlay.getBoundingClientRect();
       ctx.clearRect(0, 0, r.width, r.height);
@@ -135,54 +145,75 @@
       }
     }
 
-    // detection loop: run directly on the <video> element
-    let timer = null;
-    async function detectOnce() {
+    // Frame-driven loop using requestVideoFrameCallback (rvfc)
+    let rvfcId = null;
+    let lastDetectTs = 0;
+    const MIN_INTERVAL_MS = 800; // ~1 fps; change if you want faster/slower
+
+    async function onFrame(now, metadata) {
       try {
-        if (!video.videoWidth || video.readyState < 2) return;
-        statusEl.textContent = "Detecting…";
+        // throttle detections
+        if (!video.paused && !video.ended && (now - lastDetectTs) >= MIN_INTERVAL_MS) {
+          lastDetectTs = now;
 
-        const raw = await detector(video, { threshold: CONFIDENCE, percentage: true });
+          // prepare work canvas ~640px wide (keeps model input reasonable)
+          const vw = video.videoWidth || 640, vh = video.videoHeight || 360;
+          const targetW = 640;
+          const targetH = Math.max(1, Math.round(targetW * (vh / vw)));
+          work.width = targetW; work.height = targetH;
+          wctx.drawImage(video, 0, 0, work.width, work.height);
 
-        let dets = raw.map(r => ({
-          label: r.label,
-          score: r.score,
-          box: { x: r.box.xmin, y: r.box.ymin, w: r.box.xmax - r.box.xmin, h: r.box.ymax - r.box.ymin }
-        })).filter(r => VEHICLES.has(r.label));
+          statusEl.textContent = "Detecting…";
+          log("detect @t=", (metadata?.mediaTime ?? 0).toFixed(2), "s");
 
-        dets = nms(dets);
-        drawBoxes(dets);
-        countEl.textContent = `Cars: ${dets.length}`;
-        statusEl.textContent = "Ready ✅";
+          const raw = await detector(work, { threshold: CONFIDENCE, percentage: true });
+          let dets = raw.map(r => ({
+            label: r.label, score: r.score,
+            box: { x: r.box.xmin, y: r.box.ymin, w: r.box.xmax - r.box.xmin, h: r.box.ymax - r.box.ymin }
+          })).filter(r => VEHICLES.has(r.label));
+
+          dets = nms(dets);
+          drawBoxes(dets);
+          countEl.textContent = `Cars: ${dets.length}`;
+          statusEl.textContent = "Ready ✅";
+        }
       } catch (e) {
         console.error(e);
         statusEl.textContent = "Error 😵";
+        log("error:", e.message || e);
+      } finally {
+        rvfcId = video.requestVideoFrameCallback(onFrame);
       }
     }
 
-    function startLoop() {
-      if (timer) clearInterval(timer);
+    function startRvfc() {
+      if (rvfcId) video.cancelVideoFrameCallback(rvfcId);
       resizeOverlay();
-      timer = setInterval(detectOnce, SAMPLE_MS);
+      rvfcId = video.requestVideoFrameCallback(onFrame);
+      log("rvfc started");
     }
-    function stopLoop() {
-      if (timer) { clearInterval(timer); timer = null; }
+    function stopRvfc() {
+      if (rvfcId) { video.cancelVideoFrameCallback(rvfcId); rvfcId = null; log("rvfc stopped"); }
     }
 
-    // choose video
+    // choose a local video
     fileEl.addEventListener("change", e => {
       const file = e.target.files?.[0];
       if (!file) return;
-      stopLoop();
+      stopRvfc();
       const url = URL.createObjectURL(file);
       video.src = url;
+      video.onloadedmetadata = () => {
+        log("video loaded", video.videoWidth + "x" + video.videoHeight);
+        video.play();
+      };
     });
 
     // hook up lifecycle
     video.addEventListener("loadedmetadata", resizeOverlay);
-    video.addEventListener("play", startLoop);
-    video.addEventListener("pause", stopLoop);
-    video.addEventListener("ended", stopLoop);
+    video.addEventListener("play", startRvfc);
+    video.addEventListener("pause", stopRvfc);
+    video.addEventListener("ended", stopRvfc);
 
     // note: run via a local server so the model can be fetched/cached.
   </script>
