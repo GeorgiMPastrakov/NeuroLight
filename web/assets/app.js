@@ -457,7 +457,7 @@ function drawSpark(val){
 }
 
 // Demo mode for when API is not available
-let demoMode = false
+let demoMode = true  // Force demo mode for testing
 let demoTime = 0
 
 function demoStep(){
