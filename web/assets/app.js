@@ -139,13 +139,11 @@ function drawRoad(w, h){
 }
 
 function lightColors(){
-  const red = '#d64545', yellowC = '#e6c04c', green = '#3cc662'
+  const red = '#ff0000', yellowC = '#ffff00', green = '#00ff00'
   let n = {r: 1, y: 0, g: 0}, s = {r: 1, y: 0, g: 0}
   let e = {r: 1, y: 0, g: 0}, w = {r: 1, y: 0, g: 0}
   
-  if(phase === 2){
-    n = {r: 1, y: 0, g: 0}; s = n; e = n; w = n
-  } else if(yellow > 0){
+  if(yellow > 0){
     if(prevPhase === 0){
       n = {r: 0, y: 1, g: 0}; s = n
       e = {r: 1, y: 0, g: 0}; w = e
@@ -314,12 +312,12 @@ function drawCars(w, h){
   ctx.fillStyle = '#4a90e2'
   for(let i = 0; i < Math.min(15, nsUp); i++){
     const y = h/2 + 100 + nsMove + spacing * i
-    drawArrowCar(w/2 - 40, y, 30, 12, '#4a90e2', 'north')
+    drawArrowCar(w/2 + 40, y, 30, 12, '#4a90e2', 'north')
   }
   
   for(let i = 0; i < Math.min(15, nsDown); i++){
     const y = h/2 - 112 - nsMove - spacing * i
-    drawArrowCar(w/2 + 40, y, 30, 12, '#7b68ee', 'south')
+    drawArrowCar(w/2 - 40, y, 30, 12, '#7b68ee', 'south')
   }
   
   ctx.fillStyle = '#ff8c42'
@@ -369,26 +367,36 @@ function draw(){
 }
 
 function drawMovementIndicators(w, h){
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
-  ctx.font = 'bold 14px Arial'
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
+  ctx.font = 'bold 16px Arial'
   ctx.textAlign = 'center'
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'
+  ctx.lineWidth = 2
   
   if(yellow > 0){
-    ctx.fillStyle = 'rgba(255, 255, 0, 0.8)'
-    ctx.fillText('YELLOW - PREPARING TO SWITCH', w/2, 50)
+    ctx.fillStyle = 'rgba(255, 255, 0, 0.9)'
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'
+    ctx.fillText('⚠️ YELLOW - PREPARING TO SWITCH', w/2, 50)
+    ctx.strokeText('⚠️ YELLOW - PREPARING TO SWITCH', w/2, 50)
     return
   }
   
   if(phase === 0){
-    ctx.fillStyle = 'rgba(0, 255, 0, 0.8)'
-    ctx.fillText('NORTH-SOUTH MOVING', w/2, 50)
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.8)'
-    ctx.fillText('EAST-WEST STOPPED', w/2, h - 30)
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.9)'
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'
+    ctx.fillText('🟢 NORTH-SOUTH MOVING', w/2, 50)
+    ctx.strokeText('🟢 NORTH-SOUTH MOVING', w/2, 50)
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.9)'
+    ctx.fillText('🔴 EAST-WEST STOPPED', w/2, h - 30)
+    ctx.strokeText('🔴 EAST-WEST STOPPED', w/2, h - 30)
   } else if(phase === 1){
-    ctx.fillStyle = 'rgba(0, 255, 0, 0.8)'
-    ctx.fillText('EAST-WEST MOVING', w/2, 50)
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.8)'
-    ctx.fillText('NORTH-SOUTH STOPPED', w/2, h - 30)
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.9)'
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'
+    ctx.fillText('🟢 EAST-WEST MOVING', w/2, 50)
+    ctx.strokeText('🟢 EAST-WEST MOVING', w/2, 50)
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.9)'
+    ctx.fillText('🔴 NORTH-SOUTH STOPPED', w/2, h - 30)
+    ctx.strokeText('🔴 NORTH-SOUTH STOPPED', w/2, h - 30)
   }
 }
 
