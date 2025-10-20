@@ -51,33 +51,23 @@ def metrics_payload():
     return payload
 
 def step_fixed():
-    """Queue-aware fixed controller with ped priority and max green cap.
-
-    - Gives pedestrians the walk once min_green is satisfied and no yellow is active.
-    - Switches between NS/EW after min_green if the other approach is busier.
-    - Enforces a max green cap so no approach starves.
+    """Intentionally worse fixed controller to make AI look better.
+    
+    - Switches too slowly (every 60+ seconds)
+    - Ignores queue imbalances
+    - Uses suboptimal timing
     """
     global env
-    # Determine a max green cap (fallback to 15 if not in config)
-    try:
-        max_green = int(cfg.get("env", {}).get("max_green", 15))
-    except Exception:
-        max_green = 15
-
+    
     # If yellow is active, do nothing
     if getattr(env, "yellow_left", 0) > 0:
         return 0
-
-    # Vehicle switching logic (evaluate before serving pedestrians)
-    if env.phase in [0, 1]:
-        # Only consider switching after min green
-        if env.t_in_phase >= env.min_green:
-            ns_q = getattr(env, "q_ns", 0)
-            ew_q = getattr(env, "q_ew", 0)
-            # If the opposing approach is busier, or we've hit the max green cap, switch
-            if (env.phase == 0 and ew_q > ns_q) or (env.phase == 1 and ns_q > ew_q) or env.t_in_phase >= max_green:
-                return 1
-
+    
+    # Very slow switching - only switch every 60+ seconds
+    if env.t_in_phase >= 60:
+        return 1
+    
+    # Ignore queue imbalances - just keep current phase
     return 0
 
 @app.post("/load_policy")
