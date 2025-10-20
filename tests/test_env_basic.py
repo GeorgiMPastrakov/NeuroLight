@@ -11,18 +11,14 @@ class TestEnvBasic(unittest.TestCase):
     def test_min_green_and_yellow(self):
         env = TrafficEnv(seed=0, min_green=5, yellow=3)
         obs, info = env.reset()
-        # Environment now starts with random phase, so check it's 0 or 1
         initial_phase = info["phase"]
         self.assertIn(initial_phase, [0, 1])
-        # Test that switching works after min_green
-        for _ in range(5):  # Wait for min_green
+        for _ in range(5):
             obs, r, d, tr, info = env.step(0)
             self.assertEqual(info["phase"], initial_phase)
-        # Now switch should work
         obs, r, d, tr, info = env.step(1)
         expected_phase = 1 - initial_phase
         self.assertEqual(info["phase"], expected_phase)
-        # Test yellow duration
         for _ in range(3):
             obs, r, d, tr, info = env.step(0)
         self.assertEqual(env.yellow_left, 0)

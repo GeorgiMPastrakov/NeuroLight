@@ -1,4 +1,4 @@
-/* ========== RESET & VARIABLES ========== */
+
 :root {
   --neon-blue: #00BFFF;
   --cyan: #00FFFF;
@@ -32,7 +32,7 @@ body {
   line-height: 1.6;
 }
 
-/* ========== NAVIGATION ========== */
+
 .navbar {
   position: fixed;
   top: 0;
@@ -169,7 +169,7 @@ body {
   box-shadow: 0 6px 25px rgba(0, 191, 255, 0.5);
 }
 
-/* ========== HERO SECTION ========== */
+
 .hero {
   position: relative;
   min-height: 100vh;
@@ -365,7 +365,7 @@ body {
   font-size: 0.95rem;
 }
 
-/* ========== FEATURES SECTION ========== */
+
 .features {
   padding: 6rem 2rem;
   background: var(--dark-bg);
@@ -490,7 +490,7 @@ body {
   font-size: 0.95rem;
 }
 
-/* ========== DEMO SECTION ========== */
+
 .demo-section {
   padding: 6rem 2rem;
   background: var(--darker-bg);
@@ -827,7 +827,7 @@ body {
   display: block;
 }
 
-/* ========== FOOTER ========== */
+
 .footer {
   background: var(--panel-bg);
   border-top: 1px solid var(--border-color);
@@ -927,7 +927,7 @@ body {
   gap: 2rem;
 }
 
-/* ========== ANIMATIONS & EFFECTS ========== */
+
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -972,7 +972,7 @@ body {
   animation: fadeInUp 0.8s ease-out 1s both;
 }
 
-/* Scrollbar Styling */
+
 ::-webkit-scrollbar {
   width: 10px;
 }
@@ -990,13 +990,13 @@ body {
   background: linear-gradient(180deg, var(--cyan), var(--green));
 }
 
-/* Selection Styling */
+
 ::selection {
   background: rgba(0, 191, 255, 0.3);
   color: var(--text-primary);
 }
 
-/* ========== RESPONSIVE ========== */
+
 @media (max-width: 1200px) {
   .controls-wrapper {
     grid-template-columns: 1fr;

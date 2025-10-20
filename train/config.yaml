@@ -23,14 +23,9 @@ env:
   yellow: 3
   episode_len: 1500
   decision_interval: 1
-  # Reward shaping
   wait_w: 1.0
   max_w: 0.1
   switch_w: 0.5
   served_w: 0.08
   imbalance_w: 0.05
   hold_w: 0.02
-# Domain randomization is disabled by default; uncomment to re-enable.
-# rand:
-#   lambda_scale_min: 0.7
-#   lambda_scale_max: 1.3

@@ -97,8 +97,7 @@ def step():
     if m == "rl":
         if model is None:
             return jsonify({"error": "no model"}), 400
-        # Lazy import in case model was loaded via other path
-        from stable_baselines3 import PPO  # noqa: F401
+        from stable_baselines3 import PPO
         action, _ = model.predict(obs, deterministic=True)
         action = int(action)
         mode_used = "rl"
@@ -113,7 +112,6 @@ def step():
         info["t_in_phase"] = int(env.t_in_phase)
     if hasattr(env, "min_green"):
         info["min_green"] = int(env.min_green)
-    # base-only: no ped fields
     step_index = info.get("t")
     if step_index is None:
         step_index = metrics["t"] + 1
@@ -181,7 +179,6 @@ def set_params():
         env.lambda_p_ew = float(data["lambda_p_ew"])
     return jsonify({"ok": True})
 
-# removed ped endpoints
 
 def main():
     parser = argparse.ArgumentParser(description="NeuroLight API server")

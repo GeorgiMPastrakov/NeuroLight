@@ -3,17 +3,10 @@ import gymnasium as gym
 
 
 class RandomizeParams(gym.Wrapper):
-    """Gymnasium Wrapper that randomizes arrival rates each reset.
-
-    Expects base env attributes:
-      - lambda_ns, lambda_ew (vehicles)
-      - optionally lambda_p_ns, lambda_p_ew (pedestrians)
-    """
 
     def __init__(self, env, cfg: dict):
         super().__init__(env)
         self.cfg = cfg or {}
-        # capture baselines from current env
         self.base = {
             "lambda_ns": getattr(env, "lambda_ns", None),
             "lambda_ew": getattr(env, "lambda_ew", None),

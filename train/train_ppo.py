@@ -9,7 +9,6 @@ from stable_baselines3.common.callbacks import EvalCallback, CallbackList
 from train.wrappers import RandomizeParams
 from stable_baselines3.common.utils import set_random_seed
 from envs.traffic_env import TrafficEnv
-"""Base-only training entry (no pedestrians)."""
 
 def make_env(env_type, cfg, seed):
     def _thunk():
@@ -54,8 +53,6 @@ def main():
     os.makedirs(args.models_dir, exist_ok=True)
     seed = cfg.get("seed", 42)
     set_random_seed(seed)
-    # Vectorized envs (Subproc/Dummy handled by make_vec_env)
-    # Build factory with optional domain randomization
     def factory():
         e = make_env(args.env, cfg, seed)()
         rand_cfg = cfg.get("rand")
@@ -67,7 +64,6 @@ def main():
     env = make_vec_env(factory, n_envs=args.num_envs, seed=seed, vec_env_cls=vec_cls)
     policy = cfg["policy"]
 
-    # Learning rate can be a float or a linear schedule
     lr_cfg = cfg.get("learning_rate")
     lr_sched = cfg.get("learning_rate_schedule")
     if lr_sched == "linear" and isinstance(lr_cfg, (int, float)):
@@ -78,7 +74,6 @@ def main():
     else:
         lr = lr_cfg
 
-    # Build or resume PPO model
     def _new_model():
         return PPO(policy, env,
                    learning_rate=lr,
@@ -99,7 +94,6 @@ def main():
     resume_path = args.resume_from
     if resume_path and os.path.exists(resume_path):
         try:
-            # Probe saved spaces without binding env
             probe = PPO.load(resume_path, device=args.device)
             saved_obs_shape = getattr(getattr(probe, "observation_space", None), "shape", None)
             saved_act_n = getattr(getattr(probe, "action_space", None), "n", None)
@@ -109,7 +103,6 @@ def main():
                 saved_obs_shape == cur_obs_shape and saved_act_n == cur_act_n
             )
             if spaces_match:
-                # Load with current env to allow different num_envs
                 model = PPO.load(resume_path, env=env, device=args.device)
                 print(f"Resumed training from {resume_path} (obs={saved_obs_shape}, act_n={saved_act_n}).")
             else:
@@ -127,7 +120,6 @@ def main():
 
     callbacks = []
     if args.eval_freq and args.eval_freq > 0:
-        # single-env eval environment
         def eval_factory():
             e = make_env(args.env, cfg, seed)()
             rand_cfg = cfg.get("rand")

@@ -15,7 +15,6 @@ class TrafficEnv(gym.Env):
         yellow=3,
         episode_len=1500,
         decision_interval=1,
-        # Reward shaping weights
         wait_w=1.0,
         max_w=0.1,
         switch_w=0.5,
@@ -31,7 +30,6 @@ class TrafficEnv(gym.Env):
         self.yellow_dur = yellow
         self.episode_len = episode_len
         self.decision_interval = max(1, decision_interval)
-        # Reward weights
         self.wait_w = float(wait_w)
         self.max_w = float(max_w)
         self.switch_w = float(switch_w)
@@ -129,7 +127,6 @@ class TrafficEnv(gym.Env):
                 self.t_in_phase += 1
         queue_sum = self.q_ns + self.q_ew
         queue_max = max(self.q_ns, self.q_ew)
-        # Small positive reward for throughput while penalizing queues, imbalance, switching, and long holds
         reward = (
             self.served_w * float(served)
             - (
