@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Car Counter — Upload Video (Fixed Overlay)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { color-scheme: dark; }
+    body { margin:0; background:#0b0b0c; color:#eaeaea; font:15px/1.4 system-ui,sans-serif }
+    .wrap { max-width: 980px; margin: auto; padding: 18px; display:grid; gap:14px }
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center }
+    .btn { padding:10px 14px; border-radius:10px; background:#252530; border:1px solid #3a3a46; cursor:pointer }
+    .badge { padding:6px 10px; border-radius:999px; background:#1e1e22 }
+    input[type="file"] { display:none }
+    .stage { position:relative; width:100%; aspect-ratio:16/9; background:#0f1115; border:1px solid #242434; border-radius:12px; overflow:hidden }
+    video, canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:contain }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Car Counter (upload a video)</h1>
+
+    <div class="row">
+      <label class="btn" for="file">🎞️ Choose video</label>
+      <input id="file" type="file" accept="video/*" />
+      <span id="status" class="badge">Model: loading…</span>
+      <span id="count" class="badge">Cars: —</span>
+    </div>
+
+    <div class="stage">
+      <video id="vid" controls playsinline muted></video>
+      <canvas id="overlay"></canvas>
+    </div>
+  </div>
+
+  <script type="module">
+    import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0";
+
+    // ─── ONLY SETTINGS ───────────────────────────────────────────────────────
+    const CONFIDENCE = 0.75;   // certainty threshold (tweak 0.75–0.80)
+    const NMS_IOU    = 0.50;   // fixed de-dup IoU
+    const SAMPLE_MS  = 1000;   // run detection ~every 1s
+    // ─────────────────────────────────────────────────────────────────────────
+
+    env.allowLocalModels = false;
+    const VEHICLES = new Set(["car","truck","bus","motorcycle"]);
+
+    const statusEl = document.getElementById("status");
+    const countEl  = document.getElementById("count");
+    const fileEl   = document.getElementById("file");
+    const video    = document.getElementById("vid");
+    const overlay  = document.getElementById("overlay");
+    const ctx      = overlay.getContext("2d");
+
+    // resize overlay to match CSS size (and account for devicePixelRatio)
+    function resizeOverlay() {
+      const r = overlay.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      overlay.width  = Math.max(1, Math.round(r.width  * dpr));
+      overlay.height = Math.max(1, Math.round(r.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // draw in CSS pixels
+    }
+    window.addEventListener("resize", resizeOverlay);
+
+    // map normalized boxes (0..1) onto letterboxed video (“object-fit: contain”)
+    function getContainRect(mediaW, mediaH, viewW, viewH) {
+      const scale = Math.min(viewW / mediaW, viewH / mediaH);
+      const w = mediaW * scale, h = mediaH * scale;
+      const x = (viewW - w) / 2, y = (viewH - h) / 2;
+      return { x, y, w, h };
+    }
+
+    // simple IoU + class-aware NMS
+    function iou(a, b) {
+      const ax2 = a.x + a.w, ay2 = a.y + a.h;
+      const bx2 = b.x + b.w, by2 = b.y + b.h;
+      const ix = Math.max(0, Math.min(ax2, bx2) - Math.max(a.x, b.x));
+      const iy = Math.max(0, Math.min(ay2, by2) - Math.max(a.y, b.y));
+      const inter = ix * iy;
+      const ua = a.w * a.h + b.w * b.h - inter;
+      return ua > 0 ? inter / ua : 0;
+    }
+    function nms(dets) {
+      const byClass = {};
+      for (const d of dets) (byClass[d.label] ||= []).push(d);
+      const out = [];
+      for (const cls in byClass) {
+        const arr = byClass[cls].sort((a,b)=>b.score-a.score);
+        while (arr.length) {
+          const keep = arr.shift();
+          out.push(keep);
+          for (let i = arr.length - 1; i >= 0; i--) {
+            if (iou(keep.box, arr[i].box) > NMS_IOU) arr.splice(i,1);
+          }
+        }
+      }
+      return out;
+    }
+
+    // load model once
+    let detector = null;
+    async function loadModel() {
+      statusEl.textContent = "Loading model…";
+      detector = await pipeline("object-detection", "Xenova/detr-resnet-50", { device: "webgpu" });
+      statusEl.textContent = "Ready ✅";
+    }
+    await loadModel();
+
+    // draw boxes aligned to the displayed (letterboxed) video
+    function drawBoxes(dets) {
+      const r = overlay.getBoundingClientRect();
+      ctx.clearRect(0, 0, r.width, r.height);
+
+      const vw = video.videoWidth, vh = video.videoHeight;
+      if (!vw || !vh) return;
+      const rect = getContainRect(vw, vh, r.width, r.height);
+
+      ctx.strokeStyle = "rgba(155,201,255,.95)";
+      ctx.lineWidth = 2;
+      ctx.font = "12px system-ui, sans-serif";
+
+      for (const d of dets) {
+        const x = rect.x + d.box.x * rect.w;
+        const y = rect.y + d.box.y * rect.h;
+        const w = d.box.w * rect.w;
+        const h = d.box.h * rect.h;
+
+        ctx.strokeRect(x, y, w, h);
+        const tag = `${d.label} ${(d.score*100|0)}%`;
+        const tw = ctx.measureText(tag).width + 8;
+        ctx.fillStyle = "rgba(155,201,255,.95)";
+        ctx.fillRect(x-2, y-18, tw, 16);
+        ctx.fillStyle = "#0b0b0c";
+        ctx.fillText(tag, x+2, y-5);
+      }
+    }
+
+    // detection loop: run directly on the <video> element
+    let timer = null;
+    async function detectOnce() {
+      try {
+        if (!video.videoWidth || video.readyState < 2) return;
+        statusEl.textContent = "Detecting…";
+
+        const raw = await detector(video, { threshold: CONFIDENCE, percentage: true });
+
+        let dets = raw.map(r => ({
+          label: r.label,
+          score: r.score,
+          box: { x: r.box.xmin, y: r.box.ymin, w: r.box.xmax - r.box.xmin, h: r.box.ymax - r.box.ymin }
+        })).filter(r => VEHICLES.has(r.label));
+
+        dets = nms(dets);
+        drawBoxes(dets);
+        countEl.textContent = `Cars: ${dets.length}`;
+        statusEl.textContent = "Ready ✅";
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = "Error 😵";
+      }
+    }
+
+    function startLoop() {
+      if (timer) clearInterval(timer);
+      resizeOverlay();
+      timer = setInterval(detectOnce, SAMPLE_MS);
+    }
+    function stopLoop() {
+      if (timer) { clearInterval(timer); timer = null; }
+    }
+
+    // choose video
+    fileEl.addEventListener("change", e => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      stopLoop();
+      const url = URL.createObjectURL(file);
+      video.src = url;
+    });
+
+    // hook up lifecycle
+    video.addEventListener("loadedmetadata", resizeOverlay);
+    video.addEventListener("play", startLoop);
+    video.addEventListener("pause", stopLoop);
+    video.addEventListener("ended", stopLoop);
+
+    // note: run via a local server so the model can be fetched/cached.
+  </script>
+</body>
+</html>
