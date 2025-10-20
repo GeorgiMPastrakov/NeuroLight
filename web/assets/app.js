@@ -93,32 +93,49 @@ document.getElementById('rush').onclick = () => {
 }
 
 function drawRoad(w, h){
-  ctx.fillStyle = '#1b2130'
+  ctx.fillStyle = '#1a1a1a'
   ctx.fillRect(0, 0, w, h)
   
-  ctx.fillStyle = '#2a3347'
+  ctx.fillStyle = '#2d2d2d'
   ctx.fillRect(w/2 - 160, 0, 320, h)
   ctx.fillRect(0, h/2 - 160, w, 320)
   
-  ctx.fillStyle = '#404b66'
+  ctx.fillStyle = '#404040'
   ctx.fillRect(w/2 - 80, 0, 160, h)
   ctx.fillRect(0, h/2 - 80, w, 160)
   
-  ctx.fillStyle = '#d0d5e5'
-  for(let i = 0; i < 10; i++){
-    ctx.fillRect(w/2 - 2, i * (h/10) + 10, 4, 40)
-    ctx.fillRect(i * (w/10) + 10, h/2 - 2, 40, 4)
+  ctx.fillStyle = '#ffffff'
+  ctx.setLineDash([20, 10])
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.moveTo(w/2, 0)
+  ctx.lineTo(w/2, h)
+  ctx.moveTo(0, h/2)
+  ctx.lineTo(w, h/2)
+  ctx.stroke()
+  ctx.setLineDash([])
+  
+  ctx.fillStyle = '#ffff00'
+  for(let i = 0; i < 8; i++){
+    ctx.fillRect(w/2 - 60 + i*15, h/2 - 3, 8, 6)
+    ctx.fillRect(w/2 - 3, h/2 - 60 + i*15, 6, 8)
   }
   
-  ctx.fillStyle = '#aab3c9'
-  for(let i = -5; i <= 5; i++){
-    ctx.fillRect(w/2 - 120, h/2 + i * 18, 240, 4)
-    ctx.fillRect(w/2 + i * 18, h/2 - 120, 4, 240)
-  }
-  
-  ctx.fillStyle = '#e0e5f5'
-  ctx.fillRect(w/2 - 90, h/2 - 2, 180, 4)
-  ctx.fillRect(w/2 - 2, h/2 - 90, 4, 180)
+  ctx.fillStyle = '#ffffff'
+  ctx.font = 'bold 16px Arial'
+  ctx.textAlign = 'center'
+  ctx.fillText('NORTH', w/2, 30)
+  ctx.fillText('SOUTH', w/2, h - 10)
+  ctx.save()
+  ctx.translate(30, h/2)
+  ctx.rotate(-Math.PI/2)
+  ctx.fillText('WEST', 0, 0)
+  ctx.restore()
+  ctx.save()
+  ctx.translate(w - 30, h/2)
+  ctx.rotate(Math.PI/2)
+  ctx.fillText('EAST', 0, 0)
+  ctx.restore()
 }
 
 function lightColors(){
@@ -150,37 +167,56 @@ function lightColors(){
 }
 
 function drawLightBox(x, y, st){
-  ctx.fillStyle = '#0f131c'
-  ctx.fillRect(x - 18, y - 42, 36, 84)
+  ctx.fillStyle = '#1a1a1a'
+  ctx.fillRect(x - 20, y - 50, 40, 100)
   
-  const r = 12
-  ctx.fillStyle = st.r ? st.red : '#2a3040'
+  ctx.strokeStyle = '#333333'
+  ctx.lineWidth = 2
+  ctx.strokeRect(x - 20, y - 50, 40, 100)
+  
+  const r = 14
+  
+  ctx.fillStyle = st.r ? '#ff0000' : '#2a2a2a'
   if(st.r){
-    ctx.shadowBlur = 15
-    ctx.shadowColor = st.red
+    ctx.shadowBlur = 20
+    ctx.shadowColor = '#ff0000'
+    ctx.globalAlpha = 1.0
+  } else {
+    ctx.globalAlpha = 0.3
   }
   ctx.beginPath()
-  ctx.arc(x, y - 24, r, 0, Math.PI * 2)
+  ctx.arc(x, y - 30, r, 0, Math.PI * 2)
   ctx.fill()
   ctx.shadowBlur = 0
-  ctx.fillStyle = st.y ? st.yellowC : '#2a3040'
+  ctx.globalAlpha = 1.0
+  
+  ctx.fillStyle = st.y ? '#ffff00' : '#2a2a2a'
   if(st.y){
-    ctx.shadowBlur = 15
-    ctx.shadowColor = st.yellowC
+    ctx.shadowBlur = 20
+    ctx.shadowColor = '#ffff00'
+    ctx.globalAlpha = 1.0
+  } else {
+    ctx.globalAlpha = 0.3
   }
   ctx.beginPath()
   ctx.arc(x, y, r, 0, Math.PI * 2)
   ctx.fill()
   ctx.shadowBlur = 0
-  ctx.fillStyle = st.g ? st.green : '#2a3040'
+  ctx.globalAlpha = 1.0
+  
+  ctx.fillStyle = st.g ? '#00ff00' : '#2a2a2a'
   if(st.g){
-    ctx.shadowBlur = 15
-    ctx.shadowColor = st.green
+    ctx.shadowBlur = 20
+    ctx.shadowColor = '#00ff00'
+    ctx.globalAlpha = 1.0
+  } else {
+    ctx.globalAlpha = 0.3
   }
   ctx.beginPath()
-  ctx.arc(x, y + 24, r, 0, Math.PI * 2)
+  ctx.arc(x, y + 30, r, 0, Math.PI * 2)
   ctx.fill()
   ctx.shadowBlur = 0
+  ctx.globalAlpha = 1.0
 }
 
 function drawLights(w, h){
@@ -192,37 +228,109 @@ function drawLights(w, h){
 }
 
 function drawCars(w, h){
-  const spacing = 16
+  const spacing = 20
   const t = performance.now() / 1000
   
-  const nsMove = (yellow === 0 && phase === 0) ? (t % 1) * spacing : 0
-  const ewMove = (yellow === 0 && phase === 1) ? (t % 1) * spacing : 0
+  const nsMove = (yellow === 0 && phase === 0) ? Math.sin(t * 3) * 8 : 0
+  const ewMove = (yellow === 0 && phase === 1) ? Math.sin(t * 3) * 8 : 0
   
   const nsUp = Math.ceil(qns / 2)
   const nsDown = qns - nsUp
   const ewLeft = Math.ceil(qew / 2)
   const ewRight = qew - ewLeft
   
-  ctx.fillStyle = '#6fd0ff'
-  for(let i = 0; i < Math.min(20, nsUp); i++){
+  function drawArrowCar(x, y, width, height, color, direction){
+    ctx.fillStyle = color
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 1
+    
+    if(direction === 'north'){
+      ctx.beginPath()
+      ctx.moveTo(x, y + height)
+      ctx.lineTo(x + width/2, y)
+      ctx.lineTo(x + width, y + height)
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+      
+      ctx.fillStyle = '#ffffff'
+      ctx.beginPath()
+      ctx.moveTo(x + width/2 - 2, y + height - 4)
+      ctx.lineTo(x + width/2 + 2, y + height - 4)
+      ctx.lineTo(x + width/2, y + height - 8)
+      ctx.closePath()
+      ctx.fill()
+    } else if(direction === 'south'){
+      ctx.beginPath()
+      ctx.moveTo(x, y)
+      ctx.lineTo(x + width/2, y + height)
+      ctx.lineTo(x + width, y)
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+      
+      ctx.fillStyle = '#ffffff'
+      ctx.beginPath()
+      ctx.moveTo(x + width/2 - 2, y + 4)
+      ctx.lineTo(x + width/2 + 2, y + 4)
+      ctx.lineTo(x + width/2, y + 8)
+      ctx.closePath()
+      ctx.fill()
+    } else if(direction === 'east'){
+      ctx.beginPath()
+      ctx.moveTo(x, y)
+      ctx.lineTo(x + height, y + height/2)
+      ctx.lineTo(x, y + height)
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+      
+      ctx.fillStyle = '#ffffff'
+      ctx.beginPath()
+      ctx.moveTo(x + 4, y + height/2 - 2)
+      ctx.lineTo(x + 4, y + height/2 + 2)
+      ctx.lineTo(x + 8, y + height/2)
+      ctx.closePath()
+      ctx.fill()
+    } else if(direction === 'west'){
+      ctx.beginPath()
+      ctx.moveTo(x + height, y)
+      ctx.lineTo(x, y + height/2)
+      ctx.lineTo(x + height, y + height)
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+      
+      ctx.fillStyle = '#ffffff'
+      ctx.beginPath()
+      ctx.moveTo(x + height - 4, y + height/2 - 2)
+      ctx.lineTo(x + height - 4, y + height/2 + 2)
+      ctx.lineTo(x + height - 8, y + height/2)
+      ctx.closePath()
+      ctx.fill()
+    }
+  }
+  
+  ctx.fillStyle = '#4a90e2'
+  for(let i = 0; i < Math.min(15, nsUp); i++){
     const y = h/2 + 100 + nsMove + spacing * i
-    ctx.fillRect(w/2 - 25, y, 20, 10)
+    drawArrowCar(w/2 - 15, y, 30, 12, '#4a90e2', 'north')
   }
   
-  for(let i = 0; i < Math.min(20, nsDown); i++){
-    const y = h/2 - 110 - nsMove - spacing * i
-    ctx.fillRect(w/2 + 5, y, 20, 10)
+  for(let i = 0; i < Math.min(15, nsDown); i++){
+    const y = h/2 - 112 - nsMove - spacing * i
+    drawArrowCar(w/2 - 15, y, 30, 12, '#7b68ee', 'south')
   }
   
-  ctx.fillStyle = '#ffb86b'
-  for(let i = 0; i < Math.min(20, ewLeft); i++){
-    const x = w/2 + 110 + ewMove + spacing * i
-    ctx.fillRect(x, h/2 - 25, 10, 20)
+  ctx.fillStyle = '#ff8c42'
+  for(let i = 0; i < Math.min(15, ewLeft); i++){
+    const x = w/2 + 100 + ewMove + spacing * i
+    drawArrowCar(x, h/2 - 15, 12, 30, '#ff8c42', 'east')
   }
   
-  for(let i = 0; i < Math.min(20, ewRight); i++){
-    const x = w/2 - 120 - ewMove - spacing * i
-    ctx.fillRect(x, h/2 + 5, 10, 20)
+  for(let i = 0; i < Math.min(15, ewRight); i++){
+    const x = w/2 - 112 - ewMove - spacing * i
+    drawArrowCar(x, h/2 - 15, 12, 30, '#ff4757', 'west')
   }
 }
 
@@ -257,6 +365,31 @@ function draw(){
   drawLights(w, h)
   drawCars(w, h)
   drawPeds(w, h)
+  drawMovementIndicators(w, h)
+}
+
+function drawMovementIndicators(w, h){
+  if(yellow > 0) return
+  
+  ctx.fillStyle = 'rgba(0, 255, 0, 0.3)'
+  ctx.font = 'bold 12px Arial'
+  ctx.textAlign = 'center'
+  
+  if(phase === 0){
+    ctx.fillText('MOVING', w/2, h/2 - 140)
+    ctx.fillText('MOVING', w/2, h/2 + 140)
+  } else if(phase === 1){
+    ctx.save()
+    ctx.translate(w/2 - 140, h/2)
+    ctx.rotate(-Math.PI/2)
+    ctx.fillText('MOVING', 0, 0)
+    ctx.restore()
+    ctx.save()
+    ctx.translate(w/2 + 140, h/2)
+    ctx.rotate(Math.PI/2)
+    ctx.fillText('MOVING', 0, 0)
+    ctx.restore()
+  }
 }
 
 function phaseBadge(){
