@@ -319,7 +319,7 @@ function drawCars(w, h){
   
   for(let i = 0; i < Math.min(15, nsDown); i++){
     const y = h/2 - 112 - nsMove - spacing * i
-    drawArrowCar(w/2 - 20, y, 30, 12, '#7b68ee', 'south')
+    drawArrowCar(w/2 + 20, y, 30, 12, '#7b68ee', 'south')
   }
   
   ctx.fillStyle = '#ff8c42'
