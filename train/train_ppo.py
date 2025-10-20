@@ -3,7 +3,7 @@ import shutil
 import argparse
 import yaml
 from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback, CallbackList
 from train.wrappers import RandomizeParams
@@ -113,7 +113,8 @@ def main():
             if rand_cfg:
                 e = RandomizeParams(e, rand_cfg)
             return e
-        eval_env = make_vec_env(eval_factory, n_envs=1, seed=seed)
+        eval_vec_cls = vec_cls if vec_cls is not None else DummyVecEnv
+        eval_env = make_vec_env(eval_factory, n_envs=1, seed=seed, vec_env_cls=eval_vec_cls)
         eval_cb = EvalCallback(eval_env, best_model_save_path=args.models_dir if args.save_best else None,
                                log_path=args.tb_log_dir, eval_freq=args.eval_freq,
                                n_eval_episodes=args.eval_episodes, deterministic=True, render=False)

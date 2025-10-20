@@ -4,7 +4,23 @@ from gymnasium import spaces
 
 class TrafficEnvPed(gym.Env):
     metadata = {"render_modes": []}
-    def __init__(self, seed=0, max_queue=20, lambda_ns=0.7, lambda_ew=0.7, veh_throughput=2, min_green=8, yellow=3, episode_len=1500, lambda_p_ns=0.2, lambda_p_ew=0.2, ped_throughput=3, min_walk=7, clearance=3):
+    def __init__(
+        self,
+        seed=0,
+        max_queue=20,
+        lambda_ns=0.7,
+        lambda_ew=0.7,
+        veh_throughput=2,
+        min_green=8,
+        yellow=3,
+        episode_len=1500,
+        lambda_p_ns=0.2,
+        lambda_p_ew=0.2,
+        ped_throughput=3,
+        min_walk=7,
+        clearance=3,
+        decision_interval=1,
+    ):
         self.max_queue = max_queue
         self.lambda_ns = lambda_ns
         self.lambda_ew = lambda_ew
@@ -12,6 +28,7 @@ class TrafficEnvPed(gym.Env):
         self.min_green = min_green
         self.yellow_dur = yellow
         self.episode_len = episode_len
+        self.decision_interval = max(1, decision_interval)
         self.lambda_p_ns = lambda_p_ns
         self.lambda_p_ew = lambda_p_ew
         self.ped_throughput = ped_throughput
@@ -57,12 +74,26 @@ class TrafficEnvPed(gym.Env):
         self.total_served_p = 0
         self.pending_vehicle_switch = False
         self.pending_ped_phase = False
+        self.action_timer = 0
+        self.last_action = 0
         obs = self._obs()
         info = {"t": self.t, "q_ns": self.q_ns, "q_ew": self.q_ew, "p_ns": self.p_ns, "p_ew": self.p_ew, "phase": self.phase, "served_v": 0, "served_p": 0, "switches": self.switches}
         return obs, info
+    def _resolve_action(self, action: int) -> int:
+        a = int(action)
+        if self.decision_interval <= 1:
+            self.last_action = a
+            return a
+        if self.action_timer > 0:
+            self.action_timer -= 1
+            return self.last_action
+        self.last_action = a
+        self.action_timer = self.decision_interval - 1
+        return self.last_action
     def step(self, action):
         if self.terminated or self.truncated:
             return self._obs(), 0.0, self.terminated, self.truncated, {}
+        action = self._resolve_action(action)
         self.q_ns += self.rng.poisson(self.lambda_ns)
         self.q_ew += self.rng.poisson(self.lambda_ew)
         self.p_ns += self.rng.poisson(self.lambda_p_ns)
@@ -137,7 +168,10 @@ class TrafficEnvPed(gym.Env):
                     self.q_ew -= s
                     served_v += s
                 self.t_in_phase += 1
-        cost = 0.5 * (self.q_ns + self.q_ew) + 0.3 * max(self.q_ns, self.q_ew) + 0.5 * (self.p_ns + self.p_ew) + 0.05 * switched
+        veh_queue = self.q_ns + self.q_ew
+        ped_queue = self.p_ns + self.p_ew
+        queue_max = max(self.q_ns, self.q_ew)
+        cost = 1.0 * veh_queue + 0.2 * queue_max + 0.6 * ped_queue + 0.5 * switched
         reward = -float(cost)
         self.total_reward += reward
         self.total_served_v += served_v

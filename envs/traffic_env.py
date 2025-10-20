@@ -4,7 +4,18 @@ from gymnasium import spaces
 
 class TrafficEnv(gym.Env):
     metadata = {"render_modes": []}
-    def __init__(self, seed=0, max_queue=20, lambda_ns=0.7, lambda_ew=0.7, veh_throughput=2, min_green=8, yellow=3, episode_len=1500):
+    def __init__(
+        self,
+        seed=0,
+        max_queue=20,
+        lambda_ns=0.7,
+        lambda_ew=0.7,
+        veh_throughput=2,
+        min_green=8,
+        yellow=3,
+        episode_len=1500,
+        decision_interval=1,
+    ):
         self.max_queue = max_queue
         self.lambda_ns = lambda_ns
         self.lambda_ew = lambda_ew
@@ -12,6 +23,7 @@ class TrafficEnv(gym.Env):
         self.min_green = min_green
         self.yellow_dur = yellow
         self.episode_len = episode_len
+        self.decision_interval = max(1, decision_interval)
         self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(5,), dtype=np.float32)
         self.action_space = spaces.Discrete(2)
         self.rng = np.random.default_rng(seed)
@@ -44,12 +56,26 @@ class TrafficEnv(gym.Env):
         self.total_reward = 0.0
         self.total_served_v = 0
         self.pending_switch = False
+        self.action_timer = 0
+        self.last_action = 0
         obs = self._obs()
         info = {"t": self.t, "q_ns": self.q_ns, "q_ew": self.q_ew, "phase": self.phase, "served_v": 0, "switches": self.switches}
         return obs, info
+    def _resolve_action(self, action: int) -> int:
+        a = int(action)
+        if self.decision_interval <= 1:
+            self.last_action = a
+            return a
+        if self.action_timer > 0:
+            self.action_timer -= 1
+            return self.last_action
+        self.last_action = a
+        self.action_timer = self.decision_interval - 1
+        return self.last_action
     def step(self, action):
         if self.terminated or self.truncated:
             return self._obs(), 0.0, self.terminated, self.truncated, {}
+        action = self._resolve_action(action)
         arrivals_ns = self.rng.poisson(self.lambda_ns)
         arrivals_ew = self.rng.poisson(self.lambda_ew)
         self.q_ns += arrivals_ns
@@ -87,7 +113,9 @@ class TrafficEnv(gym.Env):
                     self.q_ew -= s
                     served += s
                 self.t_in_phase += 1
-        cost = 0.7 * (self.q_ns + self.q_ew) + 0.3 * max(self.q_ns, self.q_ew) + 0.05 * switched
+        queue_sum = self.q_ns + self.q_ew
+        queue_max = max(self.q_ns, self.q_ew)
+        cost = 1.0 * queue_sum + 0.1 * queue_max + 0.5 * switched
         reward = -float(cost)
         self.total_reward += reward
         self.total_served_v += served
