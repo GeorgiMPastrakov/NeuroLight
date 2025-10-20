@@ -314,7 +314,7 @@ function drawCars(w, h){
   ctx.fillStyle = '#4a90e2'
   for(let i = 0; i < Math.min(15, nsUp); i++){
     const y = h/2 + 100 + nsMove + spacing * i
-    drawArrowCar(w/2 + 20, y, 30, 12, '#4a90e2', 'north')
+    drawArrowCar(w/2 - 20, y, 30, 12, '#4a90e2', 'north')
   }
   
   for(let i = 0; i < Math.min(15, nsDown); i++){
@@ -325,7 +325,7 @@ function drawCars(w, h){
   ctx.fillStyle = '#ff8c42'
   for(let i = 0; i < Math.min(15, ewLeft); i++){
     const x = w/2 + 100 + ewMove + spacing * i
-    drawArrowCar(x, h/2 + 20, 12, 30, '#ff8c42', 'east')
+    drawArrowCar(x, h/2 - 20, 12, 30, '#ff8c42', 'east')
   }
   
   for(let i = 0; i < Math.min(15, ewRight); i++){
