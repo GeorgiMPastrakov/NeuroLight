@@ -20,10 +20,10 @@ let carPositions = { ns: [], ew: [] }
 // Initialize canvas size
 function size(){
   const simView = document.querySelector('.simulation-view');
-  if(simView){
+  if(simView && c){
     c.width = simView.clientWidth;
     c.height = Math.max(simView.clientHeight, 500);
-  } else {
+  } else if(c) {
     c.width = window.innerWidth;
     c.height = 500;
   }
@@ -35,17 +35,29 @@ window.addEventListener('load', () => setTimeout(size, 200))
 
 // API helpers
 async function post(path, body){
-  const r = await fetch(`${api}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : '{}'
-  });
-  return r.json()
+  try {
+    const r = await fetch(`${api}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : '{}'
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    return r.json()
+  } catch (error) {
+    console.error(`API POST ${path} failed:`, error)
+    return { error: error.message }
+  }
 }
 
 async function get(path){
-  const r = await fetch(`${api}${path}`);
-  return r.json()
+  try {
+    const r = await fetch(`${api}${path}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    return r.json()
+  } catch (error) {
+    console.error(`API GET ${path} failed:`, error)
+    return { error: error.message }
+  }
 }
 
 // Control functions
@@ -54,9 +66,23 @@ async function load(){
 }
 
 async function reset(){
-  const r = await post('/reset')
-  obs = r.obs
-  info = r.info
+  try {
+    const r = await post('/reset')
+    if(r.error) {
+      console.log('Switching to demo mode for reset')
+      demoMode = true
+      demoTime = 0
+    } else {
+      obs = r.obs
+      info = r.info
+      demoMode = false
+    }
+  } catch (error) {
+    console.log('Switching to demo mode due to reset error')
+    demoMode = true
+    demoTime = 0
+  }
+  
   waitSeries = []
   carPositions = { ns: [], ew: [] }
 }
@@ -405,9 +431,45 @@ function drawSpark(val){
   }
 }
 
+// Demo mode for when API is not available
+let demoMode = false
+let demoTime = 0
+
+function demoStep(){
+  demoTime += 0.1
+  qns = Math.floor(5 + 3 * Math.sin(demoTime))
+  qew = Math.floor(5 + 3 * Math.cos(demoTime))
+  phase = Math.floor(demoTime / 3) % 2
+  yellow = Math.floor(demoTime * 2) % 4 === 0 ? 2 : 0
+  
+  // Update UI
+  document.getElementById('ep').textContent = 1
+  document.getElementById('t').textContent = Math.floor(demoTime * 10)
+  document.getElementById('avg').textContent = (qns + qew).toFixed(2)
+  document.getElementById('sv').textContent = Math.floor(demoTime * 2)
+  document.getElementById('sw').textContent = Math.floor(demoTime / 3)
+  document.getElementById('ra').textContent = (100 - qns - qew).toFixed(3)
+  
+  phaseBadge()
+  drawSpark(qns + qew)
+  draw()
+}
+
 async function stepOnce(){
+  if (demoMode) {
+    demoStep()
+    return
+  }
+  
   const m = document.getElementById('mode').value
   const r = await post('/step', { mode: m })
+  
+  if(r.error) {
+    console.log('Switching to demo mode due to API error')
+    demoMode = true
+    demoStep()
+    return
+  }
   
   if(r.obs){
     obs = r.obs
@@ -424,6 +486,13 @@ async function stepOnce(){
   }
   
   const met = await get('/metrics')
+  if(met.error) {
+    console.log('Switching to demo mode due to metrics error')
+    demoMode = true
+    demoStep()
+    return
+  }
+  
   metrics = met
   
   // Update UI
@@ -445,5 +514,27 @@ async function loop(){
   setTimeout(loop, interval)
 }
 
-// Initialize
-reset().then(() => loop())
+// Initialize with error handling
+async function init(){
+  try {
+    await reset()
+    size()
+    draw()
+    loop()
+  } catch (error) {
+    console.error('Failed to initialize simulation:', error)
+    // Draw a fallback message
+    if(c && ctx) {
+      ctx.fillStyle = '#ef4444'
+      ctx.font = '20px Arial'
+      ctx.fillText('Simulation failed to load', 50, 50)
+    }
+  }
+}
+
+// Wait for DOM to be ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init)
+} else {
+  init()
+}
