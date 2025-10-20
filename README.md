@@ -200,34 +200,6 @@ NeuroLight/
 
 ---
 
-## 🤝 Contributing
-
-We welcome contributions! Here's how you can help:
-
-### 🐛 Bug Reports
-- Use GitHub Issues to report bugs
-- Include system information and error logs
-- Provide steps to reproduce the issue
-
-### 💡 Feature Requests
-- Suggest new features via GitHub Issues
-- Describe the use case and expected behavior
-- Consider implementation complexity
-
-### 🔧 Code Contributions
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
-### 📚 Documentation
-- Improve README sections
-- Add code comments and docstrings
-- Create tutorials and examples
-
----
-
 ## 📄 License
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
