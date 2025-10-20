@@ -145,16 +145,16 @@ function lightColors(){
   
   if(yellow > 0){
     if(prevPhase === 0){
-      n = {r: 0, y: 1, g: 0}; s = n
-      e = {r: 1, y: 0, g: 0}; w = e
+      n = {r: 0, y: 1, g: 0}; w = {r: 0, y: 1, g: 0}
+      s = {r: 1, y: 0, g: 0}; e = {r: 1, y: 0, g: 0}
     } else if(prevPhase === 1){
       s = {r: 0, y: 1, g: 0}; e = {r: 0, y: 1, g: 0}
       n = {r: 1, y: 0, g: 0}; w = {r: 1, y: 0, g: 0}
     }
   } else {
     if(phase === 0){
-      n = {r: 0, y: 0, g: 1}; s = n
-      e = {r: 1, y: 0, g: 0}; w = e
+      n = {r: 0, y: 0, g: 1}; w = {r: 0, y: 0, g: 1}
+      s = {r: 1, y: 0, g: 0}; e = {r: 1, y: 0, g: 0}
     } else if(phase === 1){
       s = {r: 0, y: 0, g: 1}; e = {r: 0, y: 0, g: 1}
       n = {r: 1, y: 0, g: 0}; w = {r: 1, y: 0, g: 0}
