@@ -29,7 +29,6 @@ function size(){
 
 window.addEventListener('resize', size)
 setTimeout(size, 100)
-// Also resize when canvas is ready
 window.addEventListener('load', () => setTimeout(size, 200))
 
 async function post(path, body){
@@ -81,11 +80,9 @@ document.getElementById('rate').onchange = e => interval = parseInt(e.target.val
 document.getElementById('ns').oninput = setParams
 document.getElementById('ew').oninput = setParams
 
-// remove ped handlers in base-only mode
 document.getElementById('rush').onclick = () => {
   rush = !rush
   document.getElementById('rush').textContent = `Rush hour: ${rush ? 'On' : 'Off'}`
-  // Simple param toggle: raise arrival rates when on
   document.getElementById('ns').value = rush ? 1.3 : 0.7
   document.getElementById('ew').value = rush ? 1.3 : 0.7
   if(pedEnabled){
@@ -157,8 +154,6 @@ function drawLightBox(x, y, st){
   ctx.fillRect(x - 18, y - 42, 36, 84)
   
   const r = 12
-  
-  // Red light
   ctx.fillStyle = st.r ? st.red : '#2a3040'
   if(st.r){
     ctx.shadowBlur = 15
@@ -168,8 +163,6 @@ function drawLightBox(x, y, st){
   ctx.arc(x, y - 24, r, 0, Math.PI * 2)
   ctx.fill()
   ctx.shadowBlur = 0
-  
-  // Yellow light
   ctx.fillStyle = st.y ? st.yellowC : '#2a3040'
   if(st.y){
     ctx.shadowBlur = 15
@@ -179,8 +172,6 @@ function drawLightBox(x, y, st){
   ctx.arc(x, y, r, 0, Math.PI * 2)
   ctx.fill()
   ctx.shadowBlur = 0
-  
-  // Green light
   ctx.fillStyle = st.g ? st.green : '#2a3040'
   if(st.g){
     ctx.shadowBlur = 15
@@ -296,7 +287,6 @@ function drawSpark(val){
   const w = sc.width, h = sc.height
   sctx.clearRect(0, 0, w, h)
   
-  // Draw gradient fill
   if(waitSeries.length > 1){
     const gradient = sctx.createLinearGradient(0, 0, 0, h)
     gradient.addColorStop(0, 'rgba(0,255,255,0.3)')
@@ -315,8 +305,6 @@ function drawSpark(val){
     sctx.closePath()
     sctx.fill()
   }
-  
-  // Draw line with glow
   sctx.strokeStyle = '#00FFFF'
   sctx.lineWidth = 2
   sctx.shadowBlur = 10

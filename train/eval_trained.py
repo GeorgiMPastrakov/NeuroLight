@@ -2,7 +2,6 @@ import os
 import yaml
 from stable_baselines3 import PPO
 from envs.traffic_env import TrafficEnv
-"""Base-only evaluation (no pedestrians)."""
 
 def run_episode(env, model):
     obs, info = env.reset()
@@ -21,7 +20,6 @@ def run_episode(env, model):
         total_reward += reward
         total_q += info.get("q_ns", 0) + info.get("q_ew", 0)
         served_v += info.get("served_v", 0)
-        # base-only: no pedestrians
         switches = info.get("switches", switches)
     avg_q = total_q / max(1, info.get("t", 1))
     return {"reward": total_reward, "avg_q": avg_q, "served_v": served_v, "switches": switches, "actions": action_counts}
