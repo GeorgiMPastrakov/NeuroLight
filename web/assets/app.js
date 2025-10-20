@@ -314,23 +314,23 @@ function drawCars(w, h){
   ctx.fillStyle = '#4a90e2'
   for(let i = 0; i < Math.min(15, nsUp); i++){
     const y = h/2 + 100 + nsMove + spacing * i
-    drawArrowCar(w/2 - 15, y, 30, 12, '#4a90e2', 'north')
+    drawArrowCar(w/2 + 20, y, 30, 12, '#4a90e2', 'north')
   }
   
   for(let i = 0; i < Math.min(15, nsDown); i++){
     const y = h/2 - 112 - nsMove - spacing * i
-    drawArrowCar(w/2 - 15, y, 30, 12, '#7b68ee', 'south')
+    drawArrowCar(w/2 + 20, y, 30, 12, '#7b68ee', 'south')
   }
   
   ctx.fillStyle = '#ff8c42'
   for(let i = 0; i < Math.min(15, ewLeft); i++){
     const x = w/2 + 100 + ewMove + spacing * i
-    drawArrowCar(x, h/2 - 15, 12, 30, '#ff8c42', 'east')
+    drawArrowCar(x, h/2 + 20, 12, 30, '#ff8c42', 'east')
   }
   
   for(let i = 0; i < Math.min(15, ewRight); i++){
     const x = w/2 - 112 - ewMove - spacing * i
-    drawArrowCar(x, h/2 - 15, 12, 30, '#ff4757', 'west')
+    drawArrowCar(x, h/2 + 20, 12, 30, '#ff4757', 'west')
   }
 }
 
@@ -369,26 +369,26 @@ function draw(){
 }
 
 function drawMovementIndicators(w, h){
-  if(yellow > 0) return
-  
-  ctx.fillStyle = 'rgba(0, 255, 0, 0.3)'
-  ctx.font = 'bold 12px Arial'
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+  ctx.font = 'bold 14px Arial'
   ctx.textAlign = 'center'
   
+  if(yellow > 0){
+    ctx.fillStyle = 'rgba(255, 255, 0, 0.8)'
+    ctx.fillText('YELLOW - PREPARING TO SWITCH', w/2, 50)
+    return
+  }
+  
   if(phase === 0){
-    ctx.fillText('MOVING', w/2, h/2 - 140)
-    ctx.fillText('MOVING', w/2, h/2 + 140)
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.8)'
+    ctx.fillText('NORTH-SOUTH MOVING', w/2, 50)
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.8)'
+    ctx.fillText('EAST-WEST STOPPED', w/2, h - 30)
   } else if(phase === 1){
-    ctx.save()
-    ctx.translate(w/2 - 140, h/2)
-    ctx.rotate(-Math.PI/2)
-    ctx.fillText('MOVING', 0, 0)
-    ctx.restore()
-    ctx.save()
-    ctx.translate(w/2 + 140, h/2)
-    ctx.rotate(Math.PI/2)
-    ctx.fillText('MOVING', 0, 0)
-    ctx.restore()
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.8)'
+    ctx.fillText('EAST-WEST MOVING', w/2, 50)
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.8)'
+    ctx.fillText('NORTH-SOUTH STOPPED', w/2, h - 30)
   }
 }
 

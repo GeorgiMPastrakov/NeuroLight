@@ -97,6 +97,14 @@ body {
   letter-spacing: 1px;
 }
 
+.logo-subtitle {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  font-weight: 400;
+  margin-top: -2px;
+  letter-spacing: 0.5px;
+}
+
 .highlight {
   background: linear-gradient(90deg, var(--neon-blue), var(--cyan));
   -webkit-background-clip: text;
