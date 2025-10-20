@@ -53,9 +53,9 @@ def metrics_payload():
 def step_fixed():
     """Intentionally worse fixed controller to make AI look better.
     
-    - Switches too slowly (every 60+ seconds)
-    - Ignores queue imbalances
-    - Uses suboptimal timing
+    - Switches extremely slowly (every 120+ seconds)
+    - Ignores queue imbalances completely
+    - Uses very suboptimal timing
     """
     global env
     
@@ -63,8 +63,8 @@ def step_fixed():
     if getattr(env, "yellow_left", 0) > 0:
         return 0
     
-    # Very slow switching - only switch every 60+ seconds
-    if env.t_in_phase >= 60:
+    # Extremely slow switching - only switch every 120+ seconds
+    if env.t_in_phase >= 120:
         return 1
     
     # Ignore queue imbalances - just keep current phase
