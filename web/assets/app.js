@@ -1,21 +1,6 @@
 const api = ''
-let c, ctx
-
-// Initialize canvas elements
-function initCanvas() {
-  c = document.getElementById('c')
-  if (!c) {
-    console.error('Canvas element not found!')
-    return false
-  }
-  ctx = c.getContext('2d')
-  if (!ctx) {
-    console.error('Could not get canvas context!')
-    return false
-  }
-  console.log('Canvas initialized:', c.width, 'x', c.height)
-  return true
-}
+const c = document.getElementById('c')
+const ctx = c.getContext('2d')
 let obs = null
 let info = null
 let metrics = null
@@ -28,83 +13,44 @@ let rush = false
 let waitSeries = []
 const MAX_POINTS = 100
 
-// Animation variables
-let animationTime = 0
-let carPositions = { ns: [], ew: [] }
-
-// Initialize canvas size
 function size(){
-  if (!c) return
-  
   const simView = document.querySelector('.simulation-view');
   if(simView){
     c.width = simView.clientWidth;
-    c.height = Math.max(simView.clientHeight, 500);
+    c.height = Math.max(simView.clientHeight, 600);
   } else {
     c.width = window.innerWidth;
-    c.height = 500;
+    c.height = 600;
   }
-  console.log('Canvas resized to:', c.width, 'x', c.height)
 }
 
 window.addEventListener('resize', size)
 setTimeout(size, 100)
 window.addEventListener('load', () => setTimeout(size, 200))
 
-// API helpers
 async function post(path, body){
-  try {
-    const r = await fetch(`${api}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: body ? JSON.stringify(body) : '{}'
-    });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`)
-    return r.json()
-  } catch (error) {
-    console.error(`API POST ${path} failed:`, error)
-    return { error: error.message }
-  }
+  const r = await fetch(`${api}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : '{}'
+  });
+  return r.json()
 }
 
 async function get(path){
-  try {
-    const r = await fetch(`${api}${path}`);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`)
-    return r.json()
-  } catch (error) {
-    console.error(`API GET ${path} failed:`, error)
-    return { error: error.message }
-  }
+  const r = await fetch(`${api}${path}`);
+  return r.json()
 }
 
-// Control functions
 async function load(){
   await post('/load_policy', { path: 'train/models/ppo_single_junction.zip' })
 }
 
 async function reset(){
-  console.log('Resetting simulation...')
-  try {
-    const r = await post('/reset')
-    if(r.error) {
-      console.log('Switching to demo mode for reset')
-      demoMode = true
-      demoTime = 0
-    } else {
-      obs = r.obs
-      info = r.info
-      demoMode = false
-    }
-  } catch (error) {
-    console.log('Switching to demo mode due to reset error:', error)
-    demoMode = true
-    demoTime = 0
-  }
-  
+  const r = await post('/reset')
+  obs = r.obs
+  info = r.info
   waitSeries = []
-  carPositions = { ns: [], ew: [] }
-  console.log('Reset complete, demo mode:', demoMode)
 }
 
 async function setMode(m){
@@ -150,62 +96,40 @@ document.getElementById('rush').onclick = () => {
   setParams()
 }
 
-// Enhanced drawing functions
+// Drawing functions
 function drawRoad(w, h){
-  // Background gradient
-  const gradient = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w, h)/2)
-  gradient.addColorStop(0, '#0a0f1c')
-  gradient.addColorStop(1, '#1a1f2e')
-  ctx.fillStyle = gradient
+  // Background
+  ctx.fillStyle = '#0f172a'
   ctx.fillRect(0, 0, w, h)
   
-  // Road surface with texture
-  ctx.fillStyle = '#2a2f3e'
-  ctx.fillRect(w/2 - 250, 0, 500, h)
-  ctx.fillRect(0, h/2 - 250, w, 500)
+  // Road surface
+  ctx.fillStyle = '#1e293b'
+  ctx.fillRect(w/2 - 200, 0, 400, h)
+  ctx.fillRect(0, h/2 - 200, w, 400)
   
-  // Lane markings with glow effect
-  ctx.fillStyle = '#4a5568'
-  ctx.fillRect(w/2 - 125, 0, 250, h)
-  ctx.fillRect(0, h/2 - 125, w, 250)
+  // Lane markings
+  ctx.fillStyle = '#475569'
+  ctx.fillRect(w/2 - 100, 0, 200, h)
+  ctx.fillRect(0, h/2 - 100, w, 200)
   
-  // Center lines with animation
-  ctx.strokeStyle = '#e2e8f0'
-  ctx.setLineDash([30, 15])
-  ctx.lineWidth = 4
-  ctx.shadowBlur = 10
-  ctx.shadowColor = '#e2e8f0'
-  
+  // Center lines
+  ctx.fillStyle = '#f1f5f9'
+  ctx.setLineDash([20, 10])
+  ctx.lineWidth = 3
   ctx.beginPath()
   ctx.moveTo(w/2, 0)
   ctx.lineTo(w/2, h)
   ctx.moveTo(0, h/2)
   ctx.lineTo(w, h/2)
   ctx.stroke()
-  
   ctx.setLineDash([])
-  ctx.shadowBlur = 0
   
-  // Crosswalk with enhanced pattern
-  ctx.fillStyle = '#f7fafc'
-  for(let i = 0; i < 12; i++){
-    ctx.fillRect(w/2 - 80 + i*12, h/2 - 4, 8, 8)
-    ctx.fillRect(w/2 - 4, h/2 - 80 + i*12, 8, 8)
+  // Crosswalk
+  ctx.fillStyle = '#e2e8f0'
+  for(let i = 0; i < 8; i++){
+    ctx.fillRect(w/2 - 60 + i*15, h/2 - 3, 8, 6)
+    ctx.fillRect(w/2 - 3, h/2 - 60 + i*15, 6, 8)
   }
-  
-  // Road edges
-  ctx.strokeStyle = '#4a5568'
-  ctx.lineWidth = 3
-  ctx.beginPath()
-  ctx.moveTo(w/2 - 250, 0)
-  ctx.lineTo(w/2 - 250, h)
-  ctx.moveTo(w/2 + 250, 0)
-  ctx.lineTo(w/2 + 250, h)
-  ctx.moveTo(0, h/2 - 250)
-  ctx.lineTo(w, h/2 - 250)
-  ctx.moveTo(0, h/2 + 250)
-  ctx.lineTo(w, h/2 + 250)
-  ctx.stroke()
 }
 
 function lightColors(){
@@ -235,37 +159,27 @@ function lightColors(){
 }
 
 function drawLightBox(x, y, st){
-  // Enhanced light housing with 3D effect
-  const gradient = ctx.createLinearGradient(x - 25, y - 60, x + 25, y + 60)
-  gradient.addColorStop(0, '#1a202c')
-  gradient.addColorStop(0.5, '#2d3748')
-  gradient.addColorStop(1, '#1a202c')
+  // Light housing
+  ctx.fillStyle = '#0f172a'
+  ctx.fillRect(x - 20, y - 50, 40, 100)
   
-  ctx.fillStyle = gradient
-  ctx.fillRect(x - 25, y - 60, 50, 120)
+  const r = 12
   
-  // Light housing border
-  ctx.strokeStyle = '#4a5568'
-  ctx.lineWidth = 2
-  ctx.strokeRect(x - 25, y - 60, 50, 120)
-  
-  const r = 15
-  
-  // Red light with enhanced glow
-  ctx.fillStyle = st.r ? st.red : '#2d3748'
+  // Red light
+  ctx.fillStyle = st.r ? st.red : '#374151'
   if(st.r){
-    ctx.shadowBlur = 25
+    ctx.shadowBlur = 20
     ctx.shadowColor = st.red
   }
   ctx.beginPath()
-  ctx.arc(x, y - 35, r, 0, Math.PI * 2)
+  ctx.arc(x, y - 30, r, 0, Math.PI * 2)
   ctx.fill()
   ctx.shadowBlur = 0
   
-  // Yellow light with enhanced glow
-  ctx.fillStyle = st.y ? st.yellowC : '#2d3748'
+  // Yellow light
+  ctx.fillStyle = st.y ? st.yellowC : '#374151'
   if(st.y){
-    ctx.shadowBlur = 25
+    ctx.shadowBlur = 20
     ctx.shadowColor = st.yellowC
   }
   ctx.beginPath()
@@ -273,33 +187,33 @@ function drawLightBox(x, y, st){
   ctx.fill()
   ctx.shadowBlur = 0
   
-  // Green light with enhanced glow
-  ctx.fillStyle = st.g ? st.green : '#2d3748'
+  // Green light
+  ctx.fillStyle = st.g ? st.green : '#374151'
   if(st.g){
-    ctx.shadowBlur = 25
+    ctx.shadowBlur = 20
     ctx.shadowColor = st.green
   }
   ctx.beginPath()
-  ctx.arc(x, y + 35, r, 0, Math.PI * 2)
+  ctx.arc(x, y + 30, r, 0, Math.PI * 2)
   ctx.fill()
   ctx.shadowBlur = 0
 }
 
 function drawLights(w, h){
   const st = lightColors()
-  drawLightBox(w/2 - 150, h/2 - 150, st.n)  // North
-  drawLightBox(w/2 - 150, h/2 + 150, st.s)  // South
-  drawLightBox(w/2 + 150, h/2 - 150, st.e)  // East
-  drawLightBox(w/2 + 150, h/2 + 150, st.w)  // West
+  drawLightBox(w/2 - 120, h/2 - 120, st.n)  // North
+  drawLightBox(w/2 - 120, h/2 + 120, st.s)  // South
+  drawLightBox(w/2 + 120, h/2 - 120, st.e)  // East
+  drawLightBox(w/2 + 120, h/2 + 120, st.w)  // West
 }
 
 function drawCars(w, h){
-  const spacing = 25
+  const spacing = 20
   const t = performance.now() / 1000
   
-  // Smooth movement animation
-  const nsMove = (yellow === 0 && phase === 0) ? Math.sin(t * 2) * 15 : 0
-  const ewMove = (yellow === 0 && phase === 1) ? Math.sin(t * 2) * 15 : 0
+  // Movement animation
+  const nsMove = (yellow === 0 && phase === 0) ? (t % 1) * spacing : 0
+  const ewMove = (yellow === 0 && phase === 1) ? (t % 1) * spacing : 0
   
   // Queue distribution
   const nsUp = Math.ceil(qns / 2)
@@ -307,74 +221,52 @@ function drawCars(w, h){
   const ewLeft = Math.ceil(qew / 2)
   const ewRight = qew - ewLeft
   
-  // Enhanced car drawing with gradients and details
-  function drawCar(x, y, width, height, color1, color2, direction = 'horizontal'){
-    // Car shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'
-    ctx.fillRect(x + 2, y + 2, width, height)
-    
-    // Car body gradient
-    const gradient = ctx.createLinearGradient(x, y, x + width, y + height)
-    gradient.addColorStop(0, color1)
-    gradient.addColorStop(1, color2)
-    ctx.fillStyle = gradient
-    ctx.fillRect(x, y, width, height)
-    
+  // Northbound cars
+  ctx.fillStyle = '#3b82f6'
+  for(let i = 0; i < Math.min(25, nsUp); i++){
+    const y = h/2 + 120 + nsMove + spacing * i
+    ctx.fillRect(w/2 - 30, y, 25, 12)
     // Car details
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)'
-    if(direction === 'horizontal'){
-      ctx.fillRect(x + 2, y + 2, width - 4, 3)
-      ctx.fillRect(x + 2, y + height - 5, width - 4, 3)
-    } else {
-      ctx.fillRect(x + 2, y + 2, 3, height - 4)
-      ctx.fillRect(x + width - 5, y + 2, 3, height - 4)
-    }
-    
-    // Headlights
-    ctx.fillStyle = '#fbbf24'
-    ctx.shadowBlur = 10
-    ctx.shadowColor = '#fbbf24'
-    if(direction === 'horizontal'){
-      ctx.fillRect(x + width - 3, y + 2, 2, 2)
-      ctx.fillRect(x + width - 3, y + height - 4, 2, 2)
-    } else {
-      ctx.fillRect(x + 2, y + height - 3, 2, 2)
-      ctx.fillRect(x + width - 4, y + height - 3, 2, 2)
-    }
-    ctx.shadowBlur = 0
+    ctx.fillStyle = '#1e40af'
+    ctx.fillRect(w/2 - 28, y + 2, 21, 8)
+    ctx.fillStyle = '#3b82f6'
   }
   
-  // Northbound cars (blue gradient)
-  for(let i = 0; i < Math.min(20, nsUp); i++){
-    const y = h/2 + 150 + nsMove + spacing * i
-    drawCar(w/2 - 35, y, 30, 15, '#3b82f6', '#1e40af', 'vertical')
+  // Southbound cars
+  ctx.fillStyle = '#8b5cf6'
+  for(let i = 0; i < Math.min(25, nsDown); i++){
+    const y = h/2 - 132 - nsMove - spacing * i
+    ctx.fillRect(w/2 + 5, y, 25, 12)
+    // Car details
+    ctx.fillStyle = '#6d28d9'
+    ctx.fillRect(w/2 + 7, y + 2, 21, 8)
+    ctx.fillStyle = '#8b5cf6'
   }
   
-  // Southbound cars (purple gradient)
-  for(let i = 0; i < Math.min(20, nsDown); i++){
-    const y = h/2 - 165 - nsMove - spacing * i
-    drawCar(w/2 + 5, y, 30, 15, '#8b5cf6', '#6d28d9', 'vertical')
+  // Eastbound cars
+  ctx.fillStyle = '#f59e0b'
+  for(let i = 0; i < Math.min(25, ewLeft); i++){
+    const x = w/2 + 120 + ewMove + spacing * i
+    ctx.fillRect(x, h/2 - 30, 12, 25)
+    // Car details
+    ctx.fillStyle = '#d97706'
+    ctx.fillRect(x + 2, h/2 - 28, 8, 21)
+    ctx.fillStyle = '#f59e0b'
   }
   
-  // Eastbound cars (orange gradient)
-  for(let i = 0; i < Math.min(20, ewLeft); i++){
-    const x = w/2 + 150 + ewMove + spacing * i
-    drawCar(x, h/2 - 35, 15, 30, '#f59e0b', '#d97706', 'horizontal')
-  }
-  
-  // Westbound cars (red gradient)
-  for(let i = 0; i < Math.min(20, ewRight); i++){
-    const x = w/2 - 165 - ewMove - spacing * i
-    drawCar(x, h/2 + 5, 15, 30, '#ef4444', '#dc2626', 'horizontal')
+  // Westbound cars
+  ctx.fillStyle = '#ef4444'
+  for(let i = 0; i < Math.min(25, ewRight); i++){
+    const x = w/2 - 132 - ewMove - spacing * i
+    ctx.fillRect(x, h/2 + 5, 12, 25)
+    // Car details
+    ctx.fillStyle = '#dc2626'
+    ctx.fillRect(x + 2, h/2 + 7, 8, 21)
+    ctx.fillStyle = '#ef4444'
   }
 }
 
 function draw(){
-  if (!c || !ctx) {
-    console.error('Canvas not initialized for drawing')
-    return
-  }
-  
   const w = c.width, h = c.height
   ctx.clearRect(0, 0, w, h)
   drawRoad(w, h)
@@ -418,10 +310,9 @@ function drawSpark(val){
   sctx.clearRect(0, 0, w, h)
   
   if(waitSeries.length > 1){
-    // Enhanced gradient fill
+    // Gradient fill
     const gradient = sctx.createLinearGradient(0, 0, 0, h)
-    gradient.addColorStop(0, 'rgba(34, 197, 94, 0.4)')
-    gradient.addColorStop(0.5, 'rgba(34, 197, 94, 0.2)')
+    gradient.addColorStop(0, 'rgba(34, 197, 94, 0.3)')
     gradient.addColorStop(1, 'rgba(34, 197, 94, 0.05)')
     sctx.fillStyle = gradient
     sctx.beginPath()
@@ -437,11 +328,11 @@ function drawSpark(val){
     sctx.closePath()
     sctx.fill()
     
-    // Enhanced line with stronger glow
+    // Line with glow
     sctx.strokeStyle = '#22c55e'
-    sctx.lineWidth = 3
-    sctx.shadowBlur = 15
-    sctx.shadowColor = 'rgba(34, 197, 94, 0.8)'
+    sctx.lineWidth = 2
+    sctx.shadowBlur = 10
+    sctx.shadowColor = 'rgba(34, 197, 94, 0.5)'
     sctx.beginPath()
     
     for(let i = 0; i < waitSeries.length; i++){
@@ -456,54 +347,9 @@ function drawSpark(val){
   }
 }
 
-// Demo mode for when API is not available
-let demoMode = true  // Force demo mode for testing
-let demoTime = 0
-
-function demoStep(){
-  demoTime += 0.1
-  qns = Math.floor(5 + 3 * Math.sin(demoTime))
-  qew = Math.floor(5 + 3 * Math.cos(demoTime))
-  phase = Math.floor(demoTime / 3) % 2
-  yellow = Math.floor(demoTime * 2) % 4 === 0 ? 2 : 0
-  
-  console.log('Demo step:', { qns, qew, phase, yellow, demoTime })
-  
-  // Update UI
-  const epEl = document.getElementById('ep')
-  const tEl = document.getElementById('t')
-  const avgEl = document.getElementById('avg')
-  const svEl = document.getElementById('sv')
-  const swEl = document.getElementById('sw')
-  const raEl = document.getElementById('ra')
-  
-  if (epEl) epEl.textContent = 1
-  if (tEl) tEl.textContent = Math.floor(demoTime * 10)
-  if (avgEl) avgEl.textContent = (qns + qew).toFixed(2)
-  if (svEl) svEl.textContent = Math.floor(demoTime * 2)
-  if (swEl) swEl.textContent = Math.floor(demoTime / 3)
-  if (raEl) raEl.textContent = (100 - qns - qew).toFixed(3)
-  
-  phaseBadge()
-  drawSpark(qns + qew)
-  draw()
-}
-
 async function stepOnce(){
-  if (demoMode) {
-    demoStep()
-    return
-  }
-  
   const m = document.getElementById('mode').value
   const r = await post('/step', { mode: m })
-  
-  if(r.error) {
-    console.log('Switching to demo mode due to API error')
-    demoMode = true
-    demoStep()
-    return
-  }
   
   if(r.obs){
     obs = r.obs
@@ -520,13 +366,6 @@ async function stepOnce(){
   }
   
   const met = await get('/metrics')
-  if(met.error) {
-    console.log('Switching to demo mode due to metrics error')
-    demoMode = true
-    demoStep()
-    return
-  }
-  
   metrics = met
   
   // Update UI
@@ -548,41 +387,5 @@ async function loop(){
   setTimeout(loop, interval)
 }
 
-// Initialize with error handling
-async function init(){
-  console.log('Initializing simulation...')
-  
-  // Initialize canvas first
-  if (!initCanvas()) {
-    console.error('Failed to initialize canvas')
-    return
-  }
-  
-  try {
-    await reset()
-    size()
-    draw()
-    console.log('Starting simulation loop...')
-    loop()
-  } catch (error) {
-    console.error('Failed to initialize simulation:', error)
-    // Draw a fallback message
-    if(c && ctx) {
-      ctx.fillStyle = '#ef4444'
-      ctx.font = '20px Arial'
-      ctx.fillText('Simulation failed to load', 50, 50)
-    }
-  }
-}
-
-// Wait for DOM to be ready
-console.log('DOM ready state:', document.readyState)
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing...')
-    init()
-  })
-} else {
-  console.log('DOM already ready, initializing...')
-  init()
-}
+// Initialize
+reset().then(() => loop())
