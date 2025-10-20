@@ -148,16 +148,16 @@ function lightColors(){
       n = {r: 0, y: 1, g: 0}; s = n
       e = {r: 1, y: 0, g: 0}; w = e
     } else if(prevPhase === 1){
-      e = {r: 0, y: 1, g: 0}; w = e
-      n = {r: 1, y: 0, g: 0}; s = n
+      s = {r: 0, y: 1, g: 0}; e = {r: 0, y: 1, g: 0}
+      n = {r: 1, y: 0, g: 0}; w = {r: 1, y: 0, g: 0}
     }
   } else {
     if(phase === 0){
       n = {r: 0, y: 0, g: 1}; s = n
       e = {r: 1, y: 0, g: 0}; w = e
     } else if(phase === 1){
-      e = {r: 0, y: 0, g: 1}; w = e
-      n = {r: 1, y: 0, g: 0}; s = n
+      s = {r: 0, y: 0, g: 1}; e = {r: 0, y: 0, g: 1}
+      n = {r: 1, y: 0, g: 0}; w = {r: 1, y: 0, g: 0}
     }
   }
   
@@ -367,36 +367,26 @@ function draw(){
 }
 
 function drawMovementIndicators(w, h){
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
-  ctx.font = 'bold 16px Arial'
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+  ctx.font = 'bold 14px Arial'
   ctx.textAlign = 'center'
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'
-  ctx.lineWidth = 2
   
   if(yellow > 0){
-    ctx.fillStyle = 'rgba(255, 255, 0, 0.9)'
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'
-    ctx.fillText('⚠️ YELLOW - PREPARING TO SWITCH', w/2, 50)
-    ctx.strokeText('⚠️ YELLOW - PREPARING TO SWITCH', w/2, 50)
+    ctx.fillStyle = 'rgba(255, 255, 0, 0.8)'
+    ctx.fillText('YELLOW - PREPARING TO SWITCH', w/2, 50)
     return
   }
   
   if(phase === 0){
-    ctx.fillStyle = 'rgba(0, 255, 0, 0.9)'
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'
-    ctx.fillText('🟢 NORTH-SOUTH MOVING', w/2, 50)
-    ctx.strokeText('🟢 NORTH-SOUTH MOVING', w/2, 50)
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.9)'
-    ctx.fillText('🔴 EAST-WEST STOPPED', w/2, h - 30)
-    ctx.strokeText('🔴 EAST-WEST STOPPED', w/2, h - 30)
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.8)'
+    ctx.fillText('NORTH-SOUTH MOVING', w/2, 50)
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.8)'
+    ctx.fillText('EAST-WEST STOPPED', w/2, h - 30)
   } else if(phase === 1){
-    ctx.fillStyle = 'rgba(0, 255, 0, 0.9)'
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'
-    ctx.fillText('🟢 EAST-WEST MOVING', w/2, 50)
-    ctx.strokeText('🟢 EAST-WEST MOVING', w/2, 50)
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.9)'
-    ctx.fillText('🔴 NORTH-SOUTH STOPPED', w/2, h - 30)
-    ctx.strokeText('🔴 NORTH-SOUTH STOPPED', w/2, h - 30)
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.8)'
+    ctx.fillText('EAST-WEST MOVING', w/2, 50)
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.8)'
+    ctx.fillText('NORTH-SOUTH STOPPED', w/2, h - 30)
   }
 }
 
