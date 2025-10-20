@@ -1,6 +1,21 @@
 const api = ''
-const c = document.getElementById('c')
-const ctx = c.getContext('2d')
+let c, ctx
+
+// Initialize canvas elements
+function initCanvas() {
+  c = document.getElementById('c')
+  if (!c) {
+    console.error('Canvas element not found!')
+    return false
+  }
+  ctx = c.getContext('2d')
+  if (!ctx) {
+    console.error('Could not get canvas context!')
+    return false
+  }
+  console.log('Canvas initialized:', c.width, 'x', c.height)
+  return true
+}
 let obs = null
 let info = null
 let metrics = null
@@ -19,14 +34,17 @@ let carPositions = { ns: [], ew: [] }
 
 // Initialize canvas size
 function size(){
+  if (!c) return
+  
   const simView = document.querySelector('.simulation-view');
-  if(simView && c){
+  if(simView){
     c.width = simView.clientWidth;
     c.height = Math.max(simView.clientHeight, 500);
-  } else if(c) {
+  } else {
     c.width = window.innerWidth;
     c.height = 500;
   }
+  console.log('Canvas resized to:', c.width, 'x', c.height)
 }
 
 window.addEventListener('resize', size)
@@ -66,6 +84,7 @@ async function load(){
 }
 
 async function reset(){
+  console.log('Resetting simulation...')
   try {
     const r = await post('/reset')
     if(r.error) {
@@ -78,13 +97,14 @@ async function reset(){
       demoMode = false
     }
   } catch (error) {
-    console.log('Switching to demo mode due to reset error')
+    console.log('Switching to demo mode due to reset error:', error)
     demoMode = true
     demoTime = 0
   }
   
   waitSeries = []
   carPositions = { ns: [], ew: [] }
+  console.log('Reset complete, demo mode:', demoMode)
 }
 
 async function setMode(m){
@@ -350,6 +370,11 @@ function drawCars(w, h){
 }
 
 function draw(){
+  if (!c || !ctx) {
+    console.error('Canvas not initialized for drawing')
+    return
+  }
+  
   const w = c.width, h = c.height
   ctx.clearRect(0, 0, w, h)
   drawRoad(w, h)
@@ -442,13 +467,22 @@ function demoStep(){
   phase = Math.floor(demoTime / 3) % 2
   yellow = Math.floor(demoTime * 2) % 4 === 0 ? 2 : 0
   
+  console.log('Demo step:', { qns, qew, phase, yellow, demoTime })
+  
   // Update UI
-  document.getElementById('ep').textContent = 1
-  document.getElementById('t').textContent = Math.floor(demoTime * 10)
-  document.getElementById('avg').textContent = (qns + qew).toFixed(2)
-  document.getElementById('sv').textContent = Math.floor(demoTime * 2)
-  document.getElementById('sw').textContent = Math.floor(demoTime / 3)
-  document.getElementById('ra').textContent = (100 - qns - qew).toFixed(3)
+  const epEl = document.getElementById('ep')
+  const tEl = document.getElementById('t')
+  const avgEl = document.getElementById('avg')
+  const svEl = document.getElementById('sv')
+  const swEl = document.getElementById('sw')
+  const raEl = document.getElementById('ra')
+  
+  if (epEl) epEl.textContent = 1
+  if (tEl) tEl.textContent = Math.floor(demoTime * 10)
+  if (avgEl) avgEl.textContent = (qns + qew).toFixed(2)
+  if (svEl) svEl.textContent = Math.floor(demoTime * 2)
+  if (swEl) swEl.textContent = Math.floor(demoTime / 3)
+  if (raEl) raEl.textContent = (100 - qns - qew).toFixed(3)
   
   phaseBadge()
   drawSpark(qns + qew)
@@ -516,10 +550,19 @@ async function loop(){
 
 // Initialize with error handling
 async function init(){
+  console.log('Initializing simulation...')
+  
+  // Initialize canvas first
+  if (!initCanvas()) {
+    console.error('Failed to initialize canvas')
+    return
+  }
+  
   try {
     await reset()
     size()
     draw()
+    console.log('Starting simulation loop...')
     loop()
   } catch (error) {
     console.error('Failed to initialize simulation:', error)
@@ -533,8 +576,13 @@ async function init(){
 }
 
 // Wait for DOM to be ready
+console.log('DOM ready state:', document.readyState)
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init)
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, initializing...')
+    init()
+  })
 } else {
+  console.log('DOM already ready, initializing...')
   init()
 }
