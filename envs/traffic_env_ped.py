@@ -20,6 +20,13 @@ class TrafficEnvPed(gym.Env):
         min_walk=7,
         clearance=3,
         decision_interval=1,
+        # Reward shaping weights
+        veh_wait_w=1.0,
+        veh_max_w=0.2,
+        ped_wait_w=0.6,
+        switch_w=0.5,
+        served_v_w=0.04,
+        served_p_w=0.06,
     ):
         self.max_queue = max_queue
         self.lambda_ns = lambda_ns
@@ -34,6 +41,13 @@ class TrafficEnvPed(gym.Env):
         self.ped_throughput = ped_throughput
         self.min_walk = min_walk
         self.clearance = clearance
+        # Reward weights
+        self.veh_wait_w = float(veh_wait_w)
+        self.veh_max_w = float(veh_max_w)
+        self.ped_wait_w = float(ped_wait_w)
+        self.switch_w = float(switch_w)
+        self.served_v_w = float(served_v_w)
+        self.served_p_w = float(served_p_w)
         self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(8,), dtype=np.float32)
         self.action_space = spaces.Discrete(3)
         self.rng = np.random.default_rng(seed)
@@ -171,8 +185,16 @@ class TrafficEnvPed(gym.Env):
         veh_queue = self.q_ns + self.q_ew
         ped_queue = self.p_ns + self.p_ew
         queue_max = max(self.q_ns, self.q_ew)
-        cost = 1.0 * veh_queue + 0.2 * queue_max + 0.6 * ped_queue + 0.5 * switched
-        reward = -float(cost)
+        reward = (
+            self.served_v_w * float(served_v)
+            + self.served_p_w * float(served_p)
+            - (
+                self.veh_wait_w * float(veh_queue)
+                + self.veh_max_w * float(queue_max)
+                + self.ped_wait_w * float(ped_queue)
+                + self.switch_w * float(switched)
+            )
+        )
         self.total_reward += reward
         self.total_served_v += served_v
         self.total_served_p += served_p

@@ -9,12 +9,11 @@ from stable_baselines3.common.callbacks import EvalCallback, CallbackList
 from train.wrappers import RandomizeParams
 from stable_baselines3.common.utils import set_random_seed
 from envs.traffic_env import TrafficEnv
-from envs.traffic_env_ped import TrafficEnvPed
+"""Base-only training entry (no pedestrians)."""
 
 def make_env(env_type, cfg, seed):
     def _thunk():
-        if env_type == "ped":
-            e = TrafficEnvPed(
+        e = TrafficEnv(
                 seed=seed,
                 max_queue=cfg["env"]["max_queue"],
                 lambda_ns=cfg["env"]["lambda_ns"],
@@ -23,29 +22,20 @@ def make_env(env_type, cfg, seed):
                 min_green=cfg["env"]["min_green"],
                 yellow=cfg["env"]["yellow"],
                 episode_len=cfg["env"]["episode_len"],
-                lambda_p_ns=cfg["env_ped"]["lambda_p_ns"],
-                lambda_p_ew=cfg["env_ped"]["lambda_p_ew"],
-                ped_throughput=cfg["env_ped"]["ped_throughput"],
-                min_walk=cfg["env_ped"]["min_walk"],
-                clearance=cfg["env_ped"]["clearance"],
-            )
-        else:
-            e = TrafficEnv(
-                seed=seed,
-                max_queue=cfg["env"]["max_queue"],
-                lambda_ns=cfg["env"]["lambda_ns"],
-                lambda_ew=cfg["env"]["lambda_ew"],
-                veh_throughput=cfg["env"]["veh_throughput"],
-                min_green=cfg["env"]["min_green"],
-                yellow=cfg["env"]["yellow"],
-                episode_len=cfg["env"]["episode_len"],
+                decision_interval=cfg["env"].get("decision_interval", 1),
+                wait_w=cfg["env"].get("wait_w", 1.0),
+                max_w=cfg["env"].get("max_w", 0.1),
+                switch_w=cfg["env"].get("switch_w", 0.5),
+                served_w=cfg["env"].get("served_w", 0.05),
+                imbalance_w=cfg["env"].get("imbalance_w", 0.0),
+                hold_w=cfg["env"].get("hold_w", 0.0),
             )
         return e
     return _thunk
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", choices=["base", "ped"], default="base")
+    parser.add_argument("--env", choices=["base"], default="base")
     parser.add_argument("--config", default="train/config.yaml")
     parser.add_argument("--models_dir", default="train/models")
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"], help="Torch device for training")
@@ -57,6 +47,7 @@ def main():
     parser.add_argument("--eval_episodes", type=int, default=5, help="Episodes per evaluation")
     parser.add_argument("--save_best", action="store_true", help="Save best model during training")
     parser.add_argument("--progress_bar", action="store_true", help="Show training progress bar")
+    parser.add_argument("--resume_from", default=None, help="Path to an existing SB3 checkpoint to continue training from")
     args = parser.parse_args()
     with open(args.config, "r") as f:
         cfg = yaml.safe_load(f)
@@ -87,21 +78,51 @@ def main():
     else:
         lr = lr_cfg
 
-    model = PPO(policy, env,
-                learning_rate=lr,
-                gamma=cfg["gamma"],
-                gae_lambda=cfg["gae_lambda"],
-                n_steps=cfg["n_steps"],
-                batch_size=cfg["batch_size"],
-                n_epochs=cfg["n_epochs"],
-                ent_coef=cfg["ent_coef"],
-                clip_range=cfg["clip_range"],
-                target_kl=cfg.get("target_kl", None),
-                seed=seed,
-                device=args.device,
-                tensorboard_log=args.tb_log_dir,
-                policy_kwargs=cfg.get("policy_kwargs", None),
-                verbose=0)
+    # Build or resume PPO model
+    def _new_model():
+        return PPO(policy, env,
+                   learning_rate=lr,
+                   gamma=cfg["gamma"],
+                   gae_lambda=cfg["gae_lambda"],
+                   n_steps=cfg["n_steps"],
+                   batch_size=cfg["batch_size"],
+                   n_epochs=cfg["n_epochs"],
+                   ent_coef=cfg["ent_coef"],
+                   clip_range=cfg["clip_range"],
+                   target_kl=cfg.get("target_kl", None),
+                   seed=seed,
+                   device=args.device,
+                   tensorboard_log=args.tb_log_dir,
+                   policy_kwargs=cfg.get("policy_kwargs", None),
+                   verbose=0)
+
+    resume_path = args.resume_from
+    if resume_path and os.path.exists(resume_path):
+        try:
+            # Probe saved spaces without binding env
+            probe = PPO.load(resume_path, device=args.device)
+            saved_obs_shape = getattr(getattr(probe, "observation_space", None), "shape", None)
+            saved_act_n = getattr(getattr(probe, "action_space", None), "n", None)
+            cur_obs_shape = getattr(env.observation_space, "shape", None)
+            cur_act_n = getattr(env.action_space, "n", None)
+            spaces_match = (
+                saved_obs_shape == cur_obs_shape and saved_act_n == cur_act_n
+            )
+            if spaces_match:
+                # Load with current env to allow different num_envs
+                model = PPO.load(resume_path, env=env, device=args.device)
+                print(f"Resumed training from {resume_path} (obs={saved_obs_shape}, act_n={saved_act_n}).")
+            else:
+                print(
+                    f"[WARN] Resume skipped due to space mismatch: saved obs={saved_obs_shape}, act_n={saved_act_n} vs current obs={cur_obs_shape}, act_n={cur_act_n}. Starting fresh.")
+                model = _new_model()
+        except Exception as e:
+            print(f"[WARN] Resume failed ('{e}'). Starting fresh.")
+            model = _new_model()
+    else:
+        if resume_path:
+            print(f"[WARN] Resume path not found: {resume_path}. Starting fresh.")
+        model = _new_model()
     total_timesteps = args.total_timesteps or cfg["total_timesteps"]
 
     callbacks = []

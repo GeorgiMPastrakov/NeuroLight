@@ -15,6 +15,13 @@ class TrafficEnv(gym.Env):
         yellow=3,
         episode_len=1500,
         decision_interval=1,
+        # Reward shaping weights
+        wait_w=1.0,
+        max_w=0.1,
+        switch_w=0.5,
+        served_w=0.05,
+        imbalance_w=0.0,
+        hold_w=0.0,
     ):
         self.max_queue = max_queue
         self.lambda_ns = lambda_ns
@@ -24,6 +31,13 @@ class TrafficEnv(gym.Env):
         self.yellow_dur = yellow
         self.episode_len = episode_len
         self.decision_interval = max(1, decision_interval)
+        # Reward weights
+        self.wait_w = float(wait_w)
+        self.max_w = float(max_w)
+        self.switch_w = float(switch_w)
+        self.served_w = float(served_w)
+        self.imbalance_w = float(imbalance_w)
+        self.hold_w = float(hold_w)
         self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(5,), dtype=np.float32)
         self.action_space = spaces.Discrete(2)
         self.rng = np.random.default_rng(seed)
@@ -46,7 +60,7 @@ class TrafficEnv(gym.Env):
             self.seed(seed)
         self.q_ns = 0
         self.q_ew = 0
-        self.phase = 0
+        self.phase = int(self.rng.integers(0, 2))
         self.t_in_phase = 0
         self.yellow_left = 0
         self.t = 0
@@ -115,8 +129,17 @@ class TrafficEnv(gym.Env):
                 self.t_in_phase += 1
         queue_sum = self.q_ns + self.q_ew
         queue_max = max(self.q_ns, self.q_ew)
-        cost = 1.0 * queue_sum + 0.1 * queue_max + 0.5 * switched
-        reward = -float(cost)
+        # Small positive reward for throughput while penalizing queues, imbalance, switching, and long holds
+        reward = (
+            self.served_w * float(served)
+            - (
+                self.wait_w * float(queue_sum)
+                + self.max_w * float(queue_max)
+                + self.switch_w * float(switched)
+                + self.imbalance_w * float(abs(self.q_ns - self.q_ew))
+                + self.hold_w * float(max(0, self.t_in_phase - self.min_green))
+            )
+        )
         self.total_reward += reward
         self.total_served_v += served
         self.t += 1

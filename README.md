@@ -4,7 +4,7 @@ Adaptive traffic-light control with reinforcement learning and a real-time visua
 
 ## Why It’s Useful
 - **End-to-end demo:** train an RL policy, evaluate it against a handcrafted baseline, and serve live decisions through a Flask API plus WebGL canvas UI.
-- **Pedestrian-aware simulation:** optional pedestrian phase with clearance logic and queue-aware fixed controller for comparison.
+- Base-only simulation: vehicle phases with queue-aware fixed controller for comparison.
 - **Domain randomization:** configurable arrival-rate perturbations for robustness testing.
 - **Ready-to-run scripts:** one-liners for setup, training, serving, evaluation, and tests.
 
@@ -23,13 +23,13 @@ Adaptive traffic-light control with reinforcement learning and a real-time visua
 git clone <repo-url>
 cd NeuroLight
 scripts/setup.sh             # creates .venv and installs dependencies
-scripts/train.sh             # trains a PPO agent (pedestrian-aware by default)
+scripts/train.sh             # trains a PPO agent (base-only)
 scripts/serve.sh             # starts the Flask API with the trained model
 # In another terminal
 xdg-open http://localhost:8000  # or open manually in your browser
 ```
 
-> The UI starts in **Fixed** mode. Click **Load Policy** then switch to **RL** to watch queues adapt. Toggle **Rush hour** or trigger pedestrian calls to stress the controller.
+> The UI starts in **Fixed** mode. Click **Load Policy** then switch to **RL** to watch queues adapt. Toggle **Rush hour** to stress the controller.
 
 ---
 
@@ -39,7 +39,7 @@ xdg-open http://localhost:8000  # or open manually in your browser
 | --- | --- | --- |
 | `scripts/setup.sh` | Create/update `.venv` and install deps | `TORCH_CHANNEL` via `--torch`, `PYTHON_BIN`, `VENV` |
 | `scripts/train.sh` | Train PPO with sensible defaults | `ENV_TYPE`, `DEVICE`, `NUM_ENVS`, `TOTAL_TIMESTEPS`, `TB_LOG_DIR`, `SUBPROC`, `SAVE_BEST` |
-| `scripts/serve.sh` | Launch API + UI backend | `HOST`, `PORT`, `USE_PED`, `SB3_DEVICE`, `DEBUG` |
+| `scripts/serve.sh` | Launch API + UI backend | `HOST`, `PORT`, `SB3_DEVICE`, `DEBUG` |
 | `scripts/eval.sh` | Run fixed and RL evaluations, persist `results/last_run.json` | — |
 | `scripts/run_tests.sh` | Execute unit tests (pytest if available, otherwise unittest) | — |
 
@@ -47,7 +47,7 @@ Scripts automatically activate the project virtualenv (`.venv`). Override defaul
 
 ```bash
 ENV_TYPE=base TOTAL_TIMESTEPS=100000 DEVICE=cpu scripts/train.sh --progress_bar
-HOST=127.0.0.1 PORT=8080 DEBUG=1 USE_PED=1 scripts/serve.sh
+HOST=127.0.0.1 PORT=8080 DEBUG=1 scripts/serve.sh
 ```
 
 ---
@@ -55,7 +55,7 @@ HOST=127.0.0.1 PORT=8080 DEBUG=1 USE_PED=1 scripts/serve.sh
 ## Training
 
 - Configuration lives in `train/config.yaml`:
-  - `env` and `env_ped` control traffic demand, signal timing, and pedestrian behaviour.
+  - `env` controls traffic demand and signal timing.
   - `policy_kwargs` sets a two-layer MLP (256 units).
   - `rand` enables domain randomization (per-episode scaling of vehicle/pedestrian arrival rates). Remove the block to disable.
 - `scripts/train.sh` defaults to a 500 k step run with 8 vector environments, periodic evaluation, and automatic best-model checkpointing to `train/models/ppo_single_junction.zip`.
@@ -108,8 +108,7 @@ Evaluation writes summaries to stdout and `results/last_run.json`. The RL evalua
 | `episode_len` | `train/config.yaml` → `env.episode_len` | Steps per episode before auto-reset |
 | `min_green`, `yellow` | same | Signal timing constraints |
 | `lambda_ns`, `lambda_ew` | same | Mean vehicle arrivals (Poisson) |
-| `lambda_p_ns`, `lambda_p_ew` | `env_ped` | Mean pedestrian arrivals |
-| `ped_throughput`, `min_walk`, `clearance` | `env_ped` | Pedestrian phase settings |
+| (pedestrian settings removed) | — | — |
 | `rand.*` | `train/config.yaml` | Domain randomization ranges |
 | `step_fixed()` | `api/server.py` | Queue-aware baseline controller |
 
@@ -119,7 +118,7 @@ Evaluation writes summaries to stdout and `results/last_run.json`. The RL evalua
 
 ```
 api/            Flask API and fixed baseline controller
-envs/           Gymnasium environments (vehicles + pedestrians)
+envs/           Gymnasium environments (vehicles)
 train/          Training, evaluation scripts, wrappers, configs
 web/            Static frontend (canvas renderer + controls)
 tests/          Unit tests for environment dynamics and rewards

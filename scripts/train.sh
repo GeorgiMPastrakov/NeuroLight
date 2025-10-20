@@ -11,7 +11,7 @@ if [[ ! -x "$PYTHON" ]]; then
   exit 1
 fi
 
-ENV_TYPE="${ENV_TYPE:-ped}"
+ENV_TYPE="${ENV_TYPE:-base}"
 DEVICE="${DEVICE:-auto}"
 NUM_ENVS="${NUM_ENVS:-8}"
 TOTAL_TIMESTEPS="${TOTAL_TIMESTEPS:-500000}"

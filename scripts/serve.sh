@@ -13,15 +13,14 @@ fi
 
 HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-8000}"
-USE_PED="${USE_PED:-0}"
 SB3_DEVICE="${SB3_DEVICE:-auto}"
 DEBUG="${DEBUG:-0}"
 
 export PYTHONPATH="$ROOT"
-export USE_PED SB3_DEVICE
+export SB3_DEVICE
 export HSA_OVERRIDE_GFX_VERSION="${HSA_OVERRIDE_GFX_VERSION:-11.0.0}"
 
-echo "Starting API server on http://$HOST:$PORT (USE_PED=$USE_PED, SB3_DEVICE=$SB3_DEVICE, DEBUG=$DEBUG)"
+echo "Starting API server on http://$HOST:$PORT (SB3_DEVICE=$SB3_DEVICE, DEBUG=$DEBUG)"
 
 if [[ "$DEBUG" != "0" ]]; then
   exec "$PYTHON" -m api.server --host "$HOST" --port "$PORT" --debug "$@"

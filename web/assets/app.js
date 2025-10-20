@@ -4,7 +4,7 @@ const ctx = c.getContext('2d')
 let obs = null
 let info = null
 let metrics = null
-let qns = 0, qew = 0, pns = 0, pew = 0
+let qns = 0, qew = 0
 let phase = 0
 let yellow = 0
 let pedWalk = 0
@@ -32,20 +32,17 @@ window.addEventListener('load', () => setTimeout(size, 200))
 async function post(path, body){const r=await fetch(`${api}${path}`,{method:'POST',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):'{}'});return r.json()}
 async function get(path){const r=await fetch(`${api}${path}`);return r.json()}
 async function load(){await post('/load_policy',{path:'train/models/ppo_single_junction.zip'})}
-async function reset(){const r=await post('/reset');obs=r.obs;info=r.info;pedEnabled=Array.isArray(obs)&&obs.length===8;document.getElementById('ped-controls').style.display=pedEnabled?'flex':'none';waitSeries=[]}
+async function reset(){const r=await post('/reset');obs=r.obs;info=r.info;pedEnabled=false;const pc=document.getElementById('ped-controls');if(pc)pc.style.display='none';waitSeries=[]}
 async function setMode(m){await post('/mode',{mode:m})}
-async function setParams(){const data={lambda_ns:parseFloat(document.getElementById('ns').value),lambda_ew:parseFloat(document.getElementById('ew').value)};if(pedEnabled){data.lambda_p_ns=parseFloat(document.getElementById('pns').value);data.lambda_p_ew=parseFloat(document.getElementById('pew').value)}await post('/set_params',data)}
-async function ped(side){if(pedEnabled)await post('/ped_call',{side})}
+async function setParams(){const data={lambda_ns:parseFloat(document.getElementById('ns').value),lambda_ew:parseFloat(document.getElementById('ew').value)};await post('/set_params',data)}
+async function ped(side){}
 document.getElementById('load').onclick=()=>load()
 document.getElementById('reset').onclick=()=>reset()
 document.getElementById('mode').onchange=e=>setMode(e.target.value)
 document.getElementById('rate').onchange=e=>interval=parseInt(e.target.value)
 document.getElementById('ns').oninput=setParams
 document.getElementById('ew').oninput=setParams
-document.getElementById('pns').oninput=setParams
-document.getElementById('pew').oninput=setParams
-document.getElementById('pedns').onclick=()=>ped('ns')
-document.getElementById('pedew').onclick=()=>ped('ew')
+// remove ped handlers in base-only mode
 document.getElementById('rush').onclick=()=>{
   rush=!rush
   document.getElementById('rush').textContent=`Rush hour: ${rush?'On':'Off'}`
@@ -162,8 +159,8 @@ function drawSpark(val){
   sctx.stroke();
   sctx.shadowBlur=0;
 }
-async function stepOnce(){const m=document.getElementById('mode').value;const r=await post('/step',{mode:m});if(r.obs){obs=r.obs;info=r.info;qns=info.q_ns||0;qew=info.q_ew||0;pns=info.p_ns||0;pew=info.p_ew||0;prevPhase=typeof phase==='number'?phase:0;phase=info.phase||0;yellow=info.yellow||0;pedWalk=info.ped_walk_left||0;pedClear=info.ped_clear_left||0}
+async function stepOnce(){const m=document.getElementById('mode').value;const r=await post('/step',{mode:m});if(r.obs){obs=r.obs;info=r.info;qns=info.q_ns||0;qew=info.q_ew||0;prevPhase=typeof phase==='number'?phase:0;phase=info.phase||0;yellow=info.yellow||0}
 if(r.episode_reset){waitSeries=[]}
-const met=await get('/metrics');metrics=met;document.getElementById('ep').textContent=met.episode||1;document.getElementById('t').textContent=met.t;const avg=Number(met.avg_wait_proxy||0);document.getElementById('avg').textContent=avg.toFixed(2);document.getElementById('sv').textContent=met.served_v;document.getElementById('sp').textContent=met.served_p;document.getElementById('sw').textContent=met.switches;document.getElementById('ra').textContent=Number(met.reward_avg||0).toFixed(3);phaseBadge();drawSpark(avg);draw()}
+const met=await get('/metrics');metrics=met;document.getElementById('ep').textContent=met.episode||1;document.getElementById('t').textContent=met.t;const avg=Number(met.avg_wait_proxy||0);document.getElementById('avg').textContent=avg.toFixed(2);document.getElementById('sv').textContent=met.served_v;document.getElementById('sw').textContent=met.switches;document.getElementById('ra').textContent=Number(met.reward_avg||0).toFixed(3);phaseBadge();drawSpark(avg);draw()}
 async function loop(){await stepOnce();setTimeout(loop,interval)}
 reset().then(()=>loop())

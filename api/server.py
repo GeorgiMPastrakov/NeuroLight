@@ -4,7 +4,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import yaml
 from envs.traffic_env import TrafficEnv
-from envs.traffic_env_ped import TrafficEnvPed
+"""Simplified base-only server (no pedestrians)."""
 
 app = Flask(__name__, static_folder="../web", static_url_path="")
 CORS(app)
@@ -13,9 +13,8 @@ with open("train/config.yaml", "r") as f:
     cfg = yaml.safe_load(f)
 
 seed = cfg.get("seed", 42)
-use_ped = os.environ.get("USE_PED", "0") == "1"
 sb3_device = os.environ.get("SB3_DEVICE", "auto")
-env = TrafficEnvPed(seed=seed, **cfg["env"], **cfg["env_ped"]) if use_ped else TrafficEnv(seed=seed, **cfg["env"])
+env = TrafficEnv(seed=seed, **cfg["env"])  # base only
 obs, info = env.reset()
 model = None
 mode = "fixed"
@@ -27,7 +26,6 @@ def init_metrics(episode=1):
         "t": 0,
         "avg_wait_proxy": 0.0,
         "served_v": 0,
-        "served_p": 0,
         "switches": 0,
         "reward_avg": 0.0,
         "_wait_sum": 0.0,
@@ -45,7 +43,6 @@ def metrics_payload():
         "t": metrics["t"],
         "avg_wait_proxy": metrics["avg_wait_proxy"],
         "served_v": metrics["served_v"],
-        "served_p": metrics["served_p"],
         "switches": metrics["switches"],
         "reward_avg": metrics["reward_avg"],
     }
@@ -67,9 +64,7 @@ def step_fixed():
     except Exception:
         max_green = 15
 
-    # If pedestrian phase or yellow is active, do nothing
-    if getattr(env, "phase", 0) == 2:
-        return 0
+    # If yellow is active, do nothing
     if getattr(env, "yellow_left", 0) > 0:
         return 0
 
@@ -83,10 +78,6 @@ def step_fixed():
             if (env.phase == 0 and ew_q > ns_q) or (env.phase == 1 and ns_q > ew_q) or env.t_in_phase >= max_green:
                 return 1
 
-    # Pedestrian priority: if a call is pending and min green is satisfied, serve ped
-    if hasattr(env, "p_ns") and hasattr(env, "p_ew"):
-        if (env.p_ns > 0 or env.p_ew > 0) and env.t_in_phase >= env.min_green:
-            return 2
     return 0
 
 @app.post("/load_policy")
@@ -143,10 +134,7 @@ def step():
         info["t_in_phase"] = int(env.t_in_phase)
     if hasattr(env, "min_green"):
         info["min_green"] = int(env.min_green)
-    if hasattr(env, "ped_walk_left"):
-        info["ped_walk_left"] = int(env.ped_walk_left)
-    if hasattr(env, "ped_clear_left"):
-        info["ped_clear_left"] = int(env.ped_clear_left)
+    # base-only: no ped fields
     step_index = info.get("t")
     if step_index is None:
         step_index = metrics["t"] + 1
@@ -156,9 +144,7 @@ def step():
     if metrics["t"] > 0:
         metrics["avg_wait_proxy"] = metrics["_wait_sum"] / metrics["t"]
     served_v = info.get("served_v", 0)
-    served_p = info.get("served_p", 0)
     metrics["served_v"] += served_v
-    metrics["served_p"] += served_p
     metrics["switches"] = info.get("switches", metrics["switches"])
     metrics["_reward_sum"] += reward
     metrics["reward_avg"] = metrics["_reward_sum"] / max(1, metrics["t"])
@@ -216,17 +202,7 @@ def set_params():
         env.lambda_p_ew = float(data["lambda_p_ew"])
     return jsonify({"ok": True})
 
-@app.post("/ped_call")
-def ped_call():
-    global env
-    if not hasattr(env, "p_ns"):
-        return jsonify({"ok": False}), 400
-    side = request.get_json(force=True).get("side", "ns")
-    if side == "ns":
-        env.p_ns += 1
-    else:
-        env.p_ew += 1
-    return jsonify({"ok": True})
+# removed ped endpoints
 
 def main():
     parser = argparse.ArgumentParser(description="NeuroLight API server")
