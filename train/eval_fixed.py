@@ -1,6 +1,5 @@
 import yaml
 from envs.traffic_env import TrafficEnv
-"""Base-only evaluation (no pedestrians)."""
 
 def run_episode(env, fixed_cycle=120):
     obs, info = env.reset()
@@ -26,7 +25,6 @@ def run_episode(env, fixed_cycle=120):
         total_reward += reward
         total_q += info.get("q_ns", 0) + info.get("q_ew", 0)
         served_v += info.get("served_v", 0)
-        # base-only: no pedestrians
         switches = info.get("switches", switches)
         if env.yellow_left == 0 and env.phase in [0,1]:
             current_phase_time += 1

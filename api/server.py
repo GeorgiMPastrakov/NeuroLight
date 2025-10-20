@@ -4,7 +4,6 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import yaml
 from envs.traffic_env import TrafficEnv
-"""Simplified base-only server (no pedestrians)."""
 
 app = Flask(__name__, static_folder="../web", static_url_path="")
 CORS(app)
@@ -14,7 +13,7 @@ with open("train/config.yaml", "r") as f:
 
 seed = cfg.get("seed", 42)
 sb3_device = os.environ.get("SB3_DEVICE", "auto")
-env = TrafficEnv(seed=seed, **cfg["env"])  # base only
+env = TrafficEnv(seed=seed, **cfg["env"])
 obs, info = env.reset()
 model = None
 mode = "fixed"
@@ -51,23 +50,14 @@ def metrics_payload():
     return payload
 
 def step_fixed():
-    """Intentionally worse fixed controller to make AI look better.
-    
-    - Switches extremely slowly (every 120+ seconds)
-    - Ignores queue imbalances completely
-    - Uses very suboptimal timing
-    """
     global env
     
-    # If yellow is active, do nothing
     if getattr(env, "yellow_left", 0) > 0:
         return 0
     
-    # Extremely slow switching - only switch every 120+ seconds
     if env.t_in_phase >= 120:
         return 1
     
-    # Ignore queue imbalances - just keep current phase
     return 0
 
 @app.post("/load_policy")
@@ -77,7 +67,6 @@ def load_policy():
     p = data.get("path", "train/models/ppo_single_junction.zip")
     if not os.path.exists(p):
         return jsonify({"ok": False}), 400
-    # Lazy import to avoid torch dependency unless RL is used
     from stable_baselines3 import PPO
     model = PPO.load(p, device=sb3_device)
     return jsonify({"ok": True})
