@@ -7,7 +7,10 @@ let metrics = null
 let qns = 0, qew = 0
 let phase = 0
 let yellow = 0
+let pedWalk = 0
+let pedClear = 0
 let prevPhase = 0
+let pedEnabled = false
 let interval = 1000
 let rush = false
 let waitSeries = []
@@ -26,6 +29,7 @@ function size(){
 
 window.addEventListener('resize', size)
 setTimeout(size, 100)
+// Also resize when canvas is ready
 window.addEventListener('load', () => setTimeout(size, 200))
 
 async function post(path, body){
@@ -50,6 +54,9 @@ async function reset(){
   const r = await post('/reset')
   obs = r.obs
   info = r.info
+  pedEnabled = false
+  const pc = document.getElementById('ped-controls')
+  if(pc) pc.style.display = 'none'
   waitSeries = []
 }
 
@@ -65,79 +72,66 @@ async function setParams(){
   await post('/set_params', data)
 }
 
-// Event listeners
+async function ped(side){}
+
 document.getElementById('load').onclick = () => load()
 document.getElementById('reset').onclick = () => reset()
 document.getElementById('mode').onchange = e => setMode(e.target.value)
 document.getElementById('rate').onchange = e => interval = parseInt(e.target.value)
+document.getElementById('ns').oninput = setParams
+document.getElementById('ew').oninput = setParams
 
-// Slider updates
-document.getElementById('ns').oninput = e => {
-  document.getElementById('ns-value').textContent = e.target.value
-  setParams()
-}
-document.getElementById('ew').oninput = e => {
-  document.getElementById('ew-value').textContent = e.target.value
-  setParams()
-}
-
-// Rush hour toggle
+// remove ped handlers in base-only mode
 document.getElementById('rush').onclick = () => {
   rush = !rush
-  const btn = document.getElementById('rush')
-  btn.textContent = `Rush Hour: ${rush ? 'On' : 'Off'}`
-  btn.classList.toggle('active', rush)
-  
-  // Update sliders
-  document.getElementById('ns').value = rush ? 1.3 : 0.5
-  document.getElementById('ew').value = rush ? 1.3 : 0.5
-  document.getElementById('ns-value').textContent = document.getElementById('ns').value
-  document.getElementById('ew-value').textContent = document.getElementById('ew').value
+  document.getElementById('rush').textContent = `Rush hour: ${rush ? 'On' : 'Off'}`
+  // Simple param toggle: raise arrival rates when on
+  document.getElementById('ns').value = rush ? 1.3 : 0.7
+  document.getElementById('ew').value = rush ? 1.3 : 0.7
+  if(pedEnabled){
+    document.getElementById('pns').value = rush ? 0.5 : 0.2
+    document.getElementById('pew').value = rush ? 0.5 : 0.2
+  }
   setParams()
 }
 
-// Drawing functions
 function drawRoad(w, h){
-  // Background
-  ctx.fillStyle = '#0f172a'
+  ctx.fillStyle = '#1b2130'
   ctx.fillRect(0, 0, w, h)
   
-  // Road surface
-  ctx.fillStyle = '#1e293b'
-  ctx.fillRect(w/2 - 200, 0, 400, h)
-  ctx.fillRect(0, h/2 - 200, w, 400)
+  ctx.fillStyle = '#2a3347'
+  ctx.fillRect(w/2 - 160, 0, 320, h)
+  ctx.fillRect(0, h/2 - 160, w, 320)
   
-  // Lane markings
-  ctx.fillStyle = '#475569'
-  ctx.fillRect(w/2 - 100, 0, 200, h)
-  ctx.fillRect(0, h/2 - 100, w, 200)
+  ctx.fillStyle = '#404b66'
+  ctx.fillRect(w/2 - 80, 0, 160, h)
+  ctx.fillRect(0, h/2 - 80, w, 160)
   
-  // Center lines
-  ctx.fillStyle = '#f1f5f9'
-  ctx.setLineDash([20, 10])
-  ctx.lineWidth = 3
-  ctx.beginPath()
-  ctx.moveTo(w/2, 0)
-  ctx.lineTo(w/2, h)
-  ctx.moveTo(0, h/2)
-  ctx.lineTo(w, h/2)
-  ctx.stroke()
-  ctx.setLineDash([])
-  
-  // Crosswalk
-  ctx.fillStyle = '#e2e8f0'
-  for(let i = 0; i < 8; i++){
-    ctx.fillRect(w/2 - 60 + i*15, h/2 - 3, 8, 6)
-    ctx.fillRect(w/2 - 3, h/2 - 60 + i*15, 6, 8)
+  ctx.fillStyle = '#d0d5e5'
+  for(let i = 0; i < 10; i++){
+    ctx.fillRect(w/2 - 2, i * (h/10) + 10, 4, 40)
+    ctx.fillRect(i * (w/10) + 10, h/2 - 2, 40, 4)
   }
+  
+  ctx.fillStyle = '#aab3c9'
+  for(let i = -5; i <= 5; i++){
+    ctx.fillRect(w/2 - 120, h/2 + i * 18, 240, 4)
+    ctx.fillRect(w/2 + i * 18, h/2 - 120, 4, 240)
+  }
+  
+  ctx.fillStyle = '#e0e5f5'
+  ctx.fillRect(w/2 - 90, h/2 - 2, 180, 4)
+  ctx.fillRect(w/2 - 2, h/2 - 90, 4, 180)
 }
 
 function lightColors(){
-  const red = '#ef4444', yellowC = '#f59e0b', green = '#22c55e'
+  const red = '#d64545', yellowC = '#e6c04c', green = '#3cc662'
   let n = {r: 1, y: 0, g: 0}, s = {r: 1, y: 0, g: 0}
   let e = {r: 1, y: 0, g: 0}, w = {r: 1, y: 0, g: 0}
   
-  if(yellow > 0){
+  if(phase === 2){
+    n = {r: 1, y: 0, g: 0}; s = n; e = n; w = n
+  } else if(yellow > 0){
     if(prevPhase === 0){
       n = {r: 0, y: 1, g: 0}; s = n
       e = {r: 1, y: 0, g: 0}; w = e
@@ -159,27 +153,26 @@ function lightColors(){
 }
 
 function drawLightBox(x, y, st){
-  // Light housing
-  ctx.fillStyle = '#0f172a'
-  ctx.fillRect(x - 20, y - 50, 40, 100)
+  ctx.fillStyle = '#0f131c'
+  ctx.fillRect(x - 18, y - 42, 36, 84)
   
   const r = 12
   
   // Red light
-  ctx.fillStyle = st.r ? st.red : '#374151'
+  ctx.fillStyle = st.r ? st.red : '#2a3040'
   if(st.r){
-    ctx.shadowBlur = 20
+    ctx.shadowBlur = 15
     ctx.shadowColor = st.red
   }
   ctx.beginPath()
-  ctx.arc(x, y - 30, r, 0, Math.PI * 2)
+  ctx.arc(x, y - 24, r, 0, Math.PI * 2)
   ctx.fill()
   ctx.shadowBlur = 0
   
   // Yellow light
-  ctx.fillStyle = st.y ? st.yellowC : '#374151'
+  ctx.fillStyle = st.y ? st.yellowC : '#2a3040'
   if(st.y){
-    ctx.shadowBlur = 20
+    ctx.shadowBlur = 15
     ctx.shadowColor = st.yellowC
   }
   ctx.beginPath()
@@ -188,81 +181,81 @@ function drawLightBox(x, y, st){
   ctx.shadowBlur = 0
   
   // Green light
-  ctx.fillStyle = st.g ? st.green : '#374151'
+  ctx.fillStyle = st.g ? st.green : '#2a3040'
   if(st.g){
-    ctx.shadowBlur = 20
+    ctx.shadowBlur = 15
     ctx.shadowColor = st.green
   }
   ctx.beginPath()
-  ctx.arc(x, y + 30, r, 0, Math.PI * 2)
+  ctx.arc(x, y + 24, r, 0, Math.PI * 2)
   ctx.fill()
   ctx.shadowBlur = 0
 }
 
 function drawLights(w, h){
   const st = lightColors()
-  drawLightBox(w/2 - 120, h/2 - 120, st.n)  // North
-  drawLightBox(w/2 - 120, h/2 + 120, st.s)  // South
-  drawLightBox(w/2 + 120, h/2 - 120, st.e)  // East
-  drawLightBox(w/2 + 120, h/2 + 120, st.w)  // West
+  drawLightBox(w/2 - 110, h/2 - 110, st.n)
+  drawLightBox(w/2 - 110, h/2 + 110, st.s)
+  drawLightBox(w/2 + 110, h/2 - 110, st.e)
+  drawLightBox(w/2 + 110, h/2 + 110, st.w)
 }
 
 function drawCars(w, h){
-  const spacing = 20
+  const spacing = 16
   const t = performance.now() / 1000
   
-  // Movement animation
   const nsMove = (yellow === 0 && phase === 0) ? (t % 1) * spacing : 0
   const ewMove = (yellow === 0 && phase === 1) ? (t % 1) * spacing : 0
   
-  // Queue distribution
   const nsUp = Math.ceil(qns / 2)
   const nsDown = qns - nsUp
   const ewLeft = Math.ceil(qew / 2)
   const ewRight = qew - ewLeft
   
-  // Northbound cars
-  ctx.fillStyle = '#3b82f6'
-  for(let i = 0; i < Math.min(25, nsUp); i++){
-    const y = h/2 + 120 + nsMove + spacing * i
-    ctx.fillRect(w/2 - 30, y, 25, 12)
-    // Car details
-    ctx.fillStyle = '#1e40af'
-    ctx.fillRect(w/2 - 28, y + 2, 21, 8)
-    ctx.fillStyle = '#3b82f6'
+  ctx.fillStyle = '#6fd0ff'
+  for(let i = 0; i < Math.min(20, nsUp); i++){
+    const y = h/2 + 100 + nsMove + spacing * i
+    ctx.fillRect(w/2 - 25, y, 20, 10)
   }
   
-  // Southbound cars
-  ctx.fillStyle = '#8b5cf6'
-  for(let i = 0; i < Math.min(25, nsDown); i++){
-    const y = h/2 - 132 - nsMove - spacing * i
-    ctx.fillRect(w/2 + 5, y, 25, 12)
-    // Car details
-    ctx.fillStyle = '#6d28d9'
-    ctx.fillRect(w/2 + 7, y + 2, 21, 8)
-    ctx.fillStyle = '#8b5cf6'
+  for(let i = 0; i < Math.min(20, nsDown); i++){
+    const y = h/2 - 110 - nsMove - spacing * i
+    ctx.fillRect(w/2 + 5, y, 20, 10)
   }
   
-  // Eastbound cars
-  ctx.fillStyle = '#f59e0b'
-  for(let i = 0; i < Math.min(25, ewLeft); i++){
-    const x = w/2 + 120 + ewMove + spacing * i
-    ctx.fillRect(x, h/2 - 30, 12, 25)
-    // Car details
-    ctx.fillStyle = '#d97706'
-    ctx.fillRect(x + 2, h/2 - 28, 8, 21)
-    ctx.fillStyle = '#f59e0b'
+  ctx.fillStyle = '#ffb86b'
+  for(let i = 0; i < Math.min(20, ewLeft); i++){
+    const x = w/2 + 110 + ewMove + spacing * i
+    ctx.fillRect(x, h/2 - 25, 10, 20)
   }
   
-  // Westbound cars
-  ctx.fillStyle = '#ef4444'
-  for(let i = 0; i < Math.min(25, ewRight); i++){
-    const x = w/2 - 132 - ewMove - spacing * i
-    ctx.fillRect(x, h/2 + 5, 12, 25)
-    // Car details
-    ctx.fillStyle = '#dc2626'
-    ctx.fillRect(x + 2, h/2 + 7, 8, 21)
-    ctx.fillStyle = '#ef4444'
+  for(let i = 0; i < Math.min(20, ewRight); i++){
+    const x = w/2 - 120 - ewMove - spacing * i
+    ctx.fillRect(x, h/2 + 5, 10, 20)
+  }
+}
+
+function drawPeds(w, h){
+  if(!pedEnabled) return
+  
+  ctx.fillStyle = '#a2ffd6'
+  for(let i = 0; i < Math.min(20, pns); i++){
+    ctx.fillRect(w/2 - 80 - 6 * i, h/2 - 140, 4, 8)
+  }
+  
+  for(let i = 0; i < Math.min(20, pew); i++){
+    ctx.fillRect(w/2 + 140, h/2 + 80 + 6 * i, 8, 4)
+  }
+  
+  if(phase === 2 && pedWalk > 0){
+    ctx.fillStyle = '#3cc662'
+    ctx.fillRect(w/2 - 16, h/2 - 6, 32, 12)
+  } else if(phase === 2 && pedClear > 0){
+    ctx.fillStyle = '#e6c04c'
+    ctx.fillRect(w/2 - 16, h/2 - 6, 32, 12)
+  } else {
+    ctx.fillStyle = '#d64545'
+    ctx.fillRect(w/2 - 16, h/2 - 6, 32, 12)
   }
 }
 
@@ -272,29 +265,23 @@ function draw(){
   drawRoad(w, h)
   drawLights(w, h)
   drawCars(w, h)
+  drawPeds(w, h)
 }
 
 function phaseBadge(){
-  const badge = document.getElementById('phase-badge')
-  const dot = document.getElementById('status-dot')
-  
+  const b = document.getElementById('phase-badge')
   if(phase === 0){
-    badge.textContent = 'NS'
-    badge.style.color = '#22c55e'
-    dot.className = 'status-dot'
+    b.textContent = 'NS'
+    b.style.color = '#00FF99'
   } else if(phase === 1){
-    badge.textContent = 'EW'
-    badge.style.color = '#3b82f6'
-    dot.className = 'status-dot'
+    b.textContent = 'EW'
+    b.style.color = '#00FFFF'
+  } else if(phase === 2){
+    b.textContent = 'PED'
+    b.style.color = '#FFD700'
   } else {
-    badge.textContent = '?'
-    badge.style.color = '#94a3b8'
-    dot.className = 'status-dot'
-  }
-  
-  // Add yellow state
-  if(yellow > 0){
-    dot.className = 'status-dot yellow'
+    b.textContent = '?'
+    b.style.color = '#8b95a8'
   }
 }
 
@@ -309,11 +296,11 @@ function drawSpark(val){
   const w = sc.width, h = sc.height
   sctx.clearRect(0, 0, w, h)
   
+  // Draw gradient fill
   if(waitSeries.length > 1){
-    // Gradient fill
     const gradient = sctx.createLinearGradient(0, 0, 0, h)
-    gradient.addColorStop(0, 'rgba(34, 197, 94, 0.3)')
-    gradient.addColorStop(1, 'rgba(34, 197, 94, 0.05)')
+    gradient.addColorStop(0, 'rgba(0,255,255,0.3)')
+    gradient.addColorStop(1, 'rgba(0,255,255,0.05)')
     sctx.fillStyle = gradient
     sctx.beginPath()
     sctx.moveTo(0, h)
@@ -321,30 +308,30 @@ function drawSpark(val){
     for(let i = 0; i < waitSeries.length; i++){
       const x = i * (w / Math.max(1, MAX_POINTS - 1))
       const vmax = Math.max(...waitSeries, 1)
-      const y = h - (waitSeries[i] / vmax) * (h - 8) - 4
+      const y = h - (waitSeries[i] / vmax) * (h - 4) - 2
       sctx.lineTo(x, y)
     }
     sctx.lineTo(w, h)
     sctx.closePath()
     sctx.fill()
-    
-    // Line with glow
-    sctx.strokeStyle = '#22c55e'
-    sctx.lineWidth = 2
-    sctx.shadowBlur = 10
-    sctx.shadowColor = 'rgba(34, 197, 94, 0.5)'
-    sctx.beginPath()
-    
-    for(let i = 0; i < waitSeries.length; i++){
-      const x = i * (w / Math.max(1, MAX_POINTS - 1))
-      const vmax = Math.max(...waitSeries, 1)
-      const y = h - (waitSeries[i] / vmax) * (h - 8) - 4
-      if(i === 0) sctx.moveTo(x, y)
-      else sctx.lineTo(x, y)
-    }
-    sctx.stroke()
-    sctx.shadowBlur = 0
   }
+  
+  // Draw line with glow
+  sctx.strokeStyle = '#00FFFF'
+  sctx.lineWidth = 2
+  sctx.shadowBlur = 10
+  sctx.shadowColor = 'rgba(0,255,255,0.5)'
+  sctx.beginPath()
+  
+  for(let i = 0; i < waitSeries.length; i++){
+    const x = i * (w / Math.max(1, MAX_POINTS - 1))
+    const vmax = Math.max(...waitSeries, 1)
+    const y = h - (waitSeries[i] / vmax) * (h - 4) - 2
+    if(i === 0) sctx.moveTo(x, y)
+    else sctx.lineTo(x, y)
+  }
+  sctx.stroke()
+  sctx.shadowBlur = 0
 }
 
 async function stepOnce(){
@@ -368,7 +355,6 @@ async function stepOnce(){
   const met = await get('/metrics')
   metrics = met
   
-  // Update UI
   document.getElementById('ep').textContent = met.episode || 1
   document.getElementById('t').textContent = met.t
   const avg = Number(met.avg_wait_proxy || 0)
@@ -387,5 +373,4 @@ async function loop(){
   setTimeout(loop, interval)
 }
 
-// Initialize
 reset().then(() => loop())
