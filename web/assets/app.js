@@ -278,22 +278,6 @@ function drawCars(w, h){
       ctx.fill()
     } else if(direction === 'east'){
       ctx.beginPath()
-      ctx.moveTo(x, y)
-      ctx.lineTo(x + height, y + height/2)
-      ctx.lineTo(x, y + height)
-      ctx.closePath()
-      ctx.fill()
-      ctx.stroke()
-      
-      ctx.fillStyle = '#ffffff'
-      ctx.beginPath()
-      ctx.moveTo(x + 4, y + height/2 - 2)
-      ctx.lineTo(x + 4, y + height/2 + 2)
-      ctx.lineTo(x + 8, y + height/2)
-      ctx.closePath()
-      ctx.fill()
-    } else if(direction === 'west'){
-      ctx.beginPath()
       ctx.moveTo(x + height, y)
       ctx.lineTo(x, y + height/2)
       ctx.lineTo(x + height, y + height)
@@ -308,6 +292,22 @@ function drawCars(w, h){
       ctx.lineTo(x + height - 8, y + height/2)
       ctx.closePath()
       ctx.fill()
+    } else if(direction === 'west'){
+      ctx.beginPath()
+      ctx.moveTo(x, y)
+      ctx.lineTo(x + height, y + height/2)
+      ctx.lineTo(x, y + height)
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+      
+      ctx.fillStyle = '#ffffff'
+      ctx.beginPath()
+      ctx.moveTo(x + 4, y + height/2 - 2)
+      ctx.lineTo(x + 4, y + height/2 + 2)
+      ctx.lineTo(x + 8, y + height/2)
+      ctx.closePath()
+      ctx.fill()
     }
   }
   
@@ -319,18 +319,18 @@ function drawCars(w, h){
   
   for(let i = 0; i < Math.min(15, nsDown); i++){
     const y = h/2 - 112 - nsMove - spacing * i
-    drawArrowCar(w/2 + 20, y, 30, 12, '#7b68ee', 'south')
+    drawArrowCar(w/2 - 20, y, 30, 12, '#7b68ee', 'south')
   }
   
   ctx.fillStyle = '#ff8c42'
   for(let i = 0; i < Math.min(15, ewLeft); i++){
     const x = w/2 + 100 + ewMove + spacing * i
-    drawArrowCar(x, h/2 - 20, 12, 30, '#ff8c42', 'east')
+    drawArrowCar(x, h/2 - 40, 12, 30, '#ff8c42', 'east')
   }
   
   for(let i = 0; i < Math.min(15, ewRight); i++){
     const x = w/2 - 112 - ewMove - spacing * i
-    drawArrowCar(x, h/2 + 20, 12, 30, '#ff4757', 'west')
+    drawArrowCar(x, h/2 + 40, 12, 30, '#ff4757', 'west')
   }
 }
 
