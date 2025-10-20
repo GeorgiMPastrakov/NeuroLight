@@ -2,7 +2,7 @@ import yaml
 from envs.traffic_env import TrafficEnv
 """Base-only evaluation (no pedestrians)."""
 
-def run_episode(env, fixed_cycle=30):
+def run_episode(env, fixed_cycle=120):
     obs, info = env.reset()
     t_local = 0
     switches = 0
