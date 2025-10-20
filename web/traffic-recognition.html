@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Traffic-recognition-model</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { color-scheme: dark; }
+    body { margin:0; background:#0b0b0c; color:#eaeaea; font:15px/1.4 system-ui,sans-serif }
+    .wrap { max-width: 980px; margin: auto; padding: 18px; display:grid; gap:14px }
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center }
+    .btn { padding:10px 14px; border-radius:10px; background:#252530; border:1px solid #3a3a46; cursor:pointer }
+    .badge { padding:6px 10px; border-radius:999px; background:#1e1e22 }
+    input[type="file"] { display:none }
+    .stage { position:relative; width:100%; background:#0f1115; border:1px solid #242434; border-radius:12px; overflow:hidden }
+    .stage img { width:100%; display:block }
+    .box { position:absolute; box-sizing:border-box; border:2px solid rgba(155,201,255,.95) }
+    .label { position:absolute; left:-2px; top:-18px; background:rgba(155,201,255,.95); color:#0b0b0c; font-size:12px; padding:2px 6px; border-radius:6px }
+    .controls { display:flex; gap:16px; flex-wrap:wrap }
+    .control { background:#121218; border:1px solid #242434; border-radius:10px; padding:8px 12px; display:flex; gap:10px; align-items:center }
+    .control input[type="range"] { width:180px }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>traffic counter</h1>
+
+    <div class="row">
+      <label class="btn" for="file">📁 Choose image</label>
+      <input id="file" type="file" accept="image/*" />
+      <span id="status" class="badge">Model: loading…</span>
+      <span id="count" class="badge">Cars: —</span>
+    </div>
+
+    <div class="controls">
+      <div class="control">
+        <label>Confidence: <span id="confVal">0.50</span></label>
+        <input id="conf" type="range" min="0.2" max="0.9" step="0.01" value="0.50" />
+      </div>
+      <div class="control">
+        <label>NMS IoU: <span id="iouVal">0.50</span></label>
+        <input id="iou" type="range" min="0.2" max="0.8" step="0.01" value="0.50" />
+      </div>
+      <div class="control">
+        <label><input id="nearOnly" type="checkbox" /> Count near half only</label>
+      </div>
+      <div class="control">
+        <label>Model:</label>
+        <select id="modelSel">
+          <option value="Xenova/detr-resnet-50">DETR-ResNet-50 (COCO)</option>
+          <option value="Xenova/owlvit-base-patch32">OWL-ViT (zero-shot)</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="stage" class="stage"></div>
+  </div>
+
+  <script type="module">
+    import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0";
+
+    env.allowLocalModels = false;
+
+    const VEHICLES = new Set(["car","truck","bus","motorcycle"]);
+    const statusEl = document.getElementById("status");
+    const countEl  = document.getElementById("count");
+    const fileEl   = document.getElementById("file");
+    const stage    = document.getElementById("stage");
+    const confEl   = document.getElementById("conf");
+    const iouEl    = document.getElementById("iou");
+    const confVal  = document.getElementById("confVal");
+    const iouVal   = document.getElementById("iouVal");
+    const nearOnly = document.getElementById("nearOnly");
+    const modelSel = document.getElementById("modelSel");
+
+    let detector = null;
+    let currentModel = modelSel.value;
+
+    // trying webgpu if Availbl
+    async function loadModel(modelId) {
+      statusEl.textContent = "Loading model…";
+      detector = await pipeline(
+        modelId === "Xenova/owlvit-base-patch32" ? "zero-shot-object-detection" : "object-detection",
+        modelId,
+        { device: "webgpu" }
+      );
+      statusEl.textContent = "Ready ✅";
+    }
+
+    await loadModel(currentModel);
+
+    modelSel.addEventListener("change", async () => {
+      currentModel = modelSel.value;
+      await loadModel(currentModel);
+      // re-run on last image if present
+      const img = stage.querySelector("img");
+      if (img?.src) run(img);
+    });
+
+    confEl.addEventListener("input", () => confVal.textContent = (+confEl.value).toFixed(2));
+    iouEl.addEventListener("input", () => iouVal.textContent = (+iouEl.value).toFixed(2));
+    [confEl, iouEl, nearOnly].forEach(el => el.addEventListener("change", () => {
+      const img = stage.querySelector("img");
+      if (img?.src) run(img);
+    }));
+
+    function clearOverlay() {
+      [...stage.querySelectorAll(".box")].forEach(el => el.remove());
+    }
+
+    function iou(a, b) {
+      const ax2 = a.x + a.w, ay2 = a.y + a.h;
+      const bx2 = b.x + b.w, by2 = b.y + b.h;
+      const ix = Math.max(0, Math.min(ax2, bx2) - Math.max(a.x, b.x));
+      const iy = Math.max(0, Math.min(ay2, by2) - Math.max(a.y, b.y));
+      const inter = ix * iy;
+      const ua = a.w * a.h + b.w * b.h - inter;
+      return ua > 0 ? inter / ua : 0;
+    }
+
+    function nms(dets, iouThresh) {
+      const byClass = {};
+      for (const d of dets) (byClass[d.label] ||= []).push(d);
+      const out = [];
+      for (const cls in byClass) {
+        const arr = byClass[cls].sort((a,b)=>b.score-a.score);
+        while (arr.length) {
+          const keep = arr.shift();
+          out.push(keep);
+          for (let i = arr.length - 1; i >= 0; i--) {
+            if (iou(keep.box, arr[i].box) > iouThresh) arr.splice(i,1);
+          }
+        }
+      }
+      return out;
+    }
+
+    async function run(imgEl) {
+      clearOverlay();
+      statusEl.textContent = "Detecting…";
+      const conf = +confEl.value;
+      const iouT = +iouEl.value;
+
+      let raw;
+      if (currentModel === "Xenova/owlvit-base-patch32") {
+        const labels = ["car", "truck", "bus", "motorcycle"];
+        raw = await detector(imgEl.src, labels, { threshold: conf, percentage: true });
+      } else {
+        raw = await detector(imgEl.src, { threshold: conf, percentage: true });
+      }
+
+      let dets = raw
+        .map(r => ({
+          label: r.label,
+          score: r.score,
+          box: { x: r.box.xmin, y: r.box.ymin, w: r.box.xmax - r.box.xmin, h: r.box.ymax - r.box.ymin }
+        }))
+        .filter(r => VEHICLES.has(r.label));
+
+
+      dets = nms(dets, iouT);
+
+      // Draw func 
+      const img = stage.querySelector("img");
+      const W = img.naturalWidth, H = img.naturalHeight;
+      for (const d of dets) {
+        const x = d.box.x * 100, y = d.box.y * 100, w = d.box.w * 100, h = d.box.h * 100;
+        const div = document.createElement("div");
+        div.className = "box";
+        Object.assign(div.style, { left: x+"%", top: y+"%", width: w+"%", height: h+"%" });
+        const tag = document.createElement("span");
+        tag.className = "label";
+        tag.textContent = `${d.label} ${(d.score*100|0)}%`;
+        div.appendChild(tag);
+        stage.appendChild(div);
+      }
+      countEl.textContent = `Cars: ${dets.length}`;
+      statusEl.textContent = dets.length ? "Done ✅" : "No vehicles found";
+    }
+
+    fileEl.addEventListener("change", e => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e2 => {
+        stage.innerHTML = "";
+        const img = document.createElement("img");
+        img.onload = () => run(img);
+        img.src = e2.target.result;
+        stage.appendChild(img);
+      };
+      reader.readAsDataURL(file);
+    });
+  </script>
+</body>
+</html>
